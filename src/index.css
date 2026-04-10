@@ -1,0 +1,91 @@
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
+
+@theme {
+  --color-primary: #005bc0;
+  --color-on-primary: #f7f7ff;
+  --color-background: #f8f9fa;
+  --color-surface: #f8f9fa;
+  --color-on-surface: #2b3437;
+  --color-on-surface-variant: #586064;
+  --color-outline: #737c7f;
+  --color-outline-variant: #abb3b7;
+  --color-surface-container-low: #f1f4f6;
+  --color-surface-container-high: #e3e9ec;
+  --color-surface-container-highest: #dbe4e7;
+  --color-surface-container: #eaeff1;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-variant: #dbe4e7;
+  --color-error: #9f403d;
+  
+  --font-body: "Inter", sans-serif;
+  --font-headline: "Inter", sans-serif;
+  
+  --radius-DEFAULT: 0.125rem;
+  --radius-lg: 0.25rem;
+  --radius-xl: 0.5rem;
+  --radius-2xl: 1rem;
+  --radius-3xl: 1.5rem;
+}
+
+:root {
+  background-color: #f8f9fa;
+  color: #2b3437;
+}
+
+body {
+  font-family: var(--font-body);
+  @apply bg-surface text-on-surface antialiased;
+}
+
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
+
+.metric-gradient {
+  background: linear-gradient(135deg, #005bc0 0%, #004fa8 100%);
+}
+
+.glass-card {
+  backdrop-filter: blur(8px);
+  background: rgba(255, 255, 255, 0.7);
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: rgba(115, 124, 127, 0.2);
+  border-radius: 99px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(115, 124, 127, 0.4);
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+
+@layer utilities {
+  .scale-98 {
+    transform: scale(0.98);
+  }
+}
+
+@keyframes scale-in-center {
+  0% { transform: scale(0.95); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.scale-in-center {
+  animation: scale-in-center 0.2s cubic-bezier(0.250, 0.460, 0.450, 0.940) both;
+}

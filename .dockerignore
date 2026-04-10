@@ -1,0 +1,11 @@
+node_modules
+server/node_modules
+dist
+dist.tar.gz
+.git
+.gitignore
+*.log
+.env
+.env.*
+!*.env.example
+

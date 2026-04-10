@@ -1,0 +1,30 @@
+services:
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ${PROJECT_NAME:-pdl-dashboard}-frontend:latest
+    restart: always
+    ports:
+      - "${DASHBOARD_PORT:-8090}:80"
+    depends_on:
+      - backend
+
+  backend:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    image: ${PROJECT_NAME:-pdl-dashboard}-backend:latest
+    restart: always
+    environment:
+      - PORT=${BACKEND_PORT:-3001}
+      - WEBS_HOME=${WEBS_HOME:-/home/pdl1host/webs}
+      - SRV_WEBS_HOME=${SRV_WEBS_HOME:-/srv/webs}
+    working_dir: /app
+    volumes:
+      - ${WEBS_HOME:-/home/pdl1host/webs}:${WEBS_HOME:-/home/pdl1host/webs}
+      - ${SRV_WEBS_HOME:-/srv/webs}:${SRV_WEBS_HOME:-/srv/webs}
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - "${BACKEND_PORT:-3001}:3001"
+

@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sytem Maintenance | Project Control</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .animate-swing {
+            animation: swing 3s ease-in-out infinite;
+            transform-origin: center center;
+        }
+        @keyframes swing {
+            0%, 100% { transform: rotate(-5deg); }
+            50% { transform: rotate(5deg); }
+        }
+        .progress-mask {
+            mask-image: linear-gradient(to right, black, transparent);
+        }
+        .glass {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+    </style>
+</head>
+<body class="bg-[#f6f6f8] text-slate-900 min-h-screen flex flex-col items-center justify-center p-4">
+    
+    <div class="max-w-xl w-full text-center space-y-12">
+        <!-- Animated Icon Container -->
+        <div class="relative inline-block">
+            <div class="absolute inset-0 bg-blue-500/10 blur-3xl rounded-full"></div>
+            <div class="relative size-48 bg-white/50 rounded-full flex items-center justify-center shadow-xl border border-white">
+                <span class="material-symbols-outlined !text-7xl text-blue-700 animate-swing">construction</span>
+            </div>
+        </div>
+
+        <div class="space-y-4">
+            <h1 class="text-5xl font-black tracking-tight text-slate-900">Hệ thống đang bảo trì</h1>
+            <p class="text-lg text-slate-500 font-medium leading-relaxed max-w-md mx-auto">
+                Chúng tôi đang thực hiện một số nâng cấp quan trọng để mang lại trải nghiệm quản lý dự án tốt nhất cho bạn. Xin vui lòng quay lại sau ít phút.
+            </p>
+        </div>
+
+        <div class="glass p-8 rounded-3xl shadow-sm border border-slate-200">
+            <div class="flex justify-between items-end mb-4">
+                <span class="text-xs font-black text-blue-700 uppercase tracking-widest">Tiến độ cập nhật</span>
+                <span id="percent" class="text-sm font-black text-slate-900">Tính toán...</span>
+            </div>
+            
+            <div class="w-full bg-slate-200/50 h-3 rounded-full overflow-hidden mb-6 p-0.5 border border-slate-100">
+                <div id="progress-bar" class="bg-blue-700 h-full rounded-full transition-all duration-1000 shadow-[0_0_15px_rgba(29,78,216,0.3)]" style="width: 0%"></div>
+            </div>
+
+            <div class="flex items-center justify-center gap-2 text-slate-500">
+                <span class="material-symbols-outlined !text-base">schedule</span>
+                <span id="remaining-text" class="text-xs font-bold uppercase tracking-tight">Vui lòng chờ trong giây lát...</span>
+            </div>
+        </div>
+
+        <div class="pt-8 flex flex-wrap justify-center gap-8 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] border-t border-slate-200/50">
+            <p>© 2026 Project Control Management</p>
+            <div class="flex gap-4">
+                <a href="#" class="hover:text-blue-600 transition-colors">Twitter</a>
+                <a href="#" class="hover:text-blue-600 transition-colors">LinkedIn</a>
+                <a href="#" class="hover:text-blue-600 transition-colors">Facebook</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Logic for dynamic time -->
+    <script>
+        const endTime = "{{END_TIME}}"; // Placeholder to be replaced
+        const startTime = "{{START_TIME}}"; // Placeholder to be replaced
+
+        function updateProgress() {
+            if (!endTime || endTime.includes("{{")) {
+                document.getElementById('progress-bar').style.width = '65%';
+                document.getElementById('percent').innerText = '65%';
+                return;
+            }
+
+            const end = new Date(endTime).getTime();
+            const start = new Date(startTime).getTime();
+            const now = new Date().getTime();
+
+            if (now >= end) {
+                document.getElementById('progress-bar').style.width = '100%';
+                document.getElementById('percent').innerText = '100%';
+                document.getElementById('remaining-text').innerText = 'Hệ thống đã sẵn sàng, vui lòng reload trang';
+                return;
+            }
+
+            const total = end - start;
+            const elapsed = now - start;
+            let percent = Math.round((elapsed / total) * 100);
+            
+            // Limit percent to 95 if not reached end
+            if (percent > 95) percent = 95;
+            if (percent < 0) percent = 0;
+
+            document.getElementById('progress-bar').style.width = percent + '%';
+            document.getElementById('percent').innerText = percent + '%';
+
+            const remaining = Math.round((end - now) / 60000);
+            const endTimeStr = new Date(endTime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+            document.getElementById('remaining-text').innerText = `Dự kiến hoàn thành trong ${remaining} phút nữa (${endTimeStr})`;
+        }
+
+        setInterval(updateProgress, 10000);
+        updateProgress();
+    </script>
+</body>
+</html>
