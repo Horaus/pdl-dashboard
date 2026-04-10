@@ -34,9 +34,27 @@
   color: #2b3437;
 }
 
+.dark {
+  --color-primary: #68a9ff;
+  --color-on-primary: #06121f;
+  --color-background: #0a1118;
+  --color-surface: #0a1118;
+  --color-on-surface: #e2ebf5;
+  --color-on-surface-variant: #99a8bb;
+  --color-outline: #748296;
+  --color-outline-variant: #334356;
+  --color-surface-container-low: #121c27;
+  --color-surface-container-high: #1a2531;
+  --color-surface-container-highest: #22303e;
+  --color-surface-container: #16212d;
+  --color-surface-container-lowest: #0f1823;
+  --color-surface-variant: #1e2b39;
+}
+
 body {
   font-family: var(--font-body);
   @apply bg-surface text-on-surface antialiased;
+  transition: background-color 180ms ease, color 180ms ease;
 }
 
 .material-symbols-outlined {

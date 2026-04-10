@@ -34,15 +34,15 @@ const Toast = ({ id, message, type, onClose }) => {
 };
 
 const ModalWrapper = ({ title, onClose, children }) => (
-  <div className="fixed inset-0 z-[100] flex items-center justify-center bg-on-surface/45 p-4 animate-in fade-in duration-150">
+  <div className="fixed inset-0 z-[100] flex items-center justify-center bg-on-surface/45 p-2 sm:p-4 animate-in fade-in duration-150">
     <div className="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-surface-container-lowest shadow-2xl ring-1 ring-outline-variant/10 scale-in-center">
-      <div className="flex shrink-0 items-center justify-between border-b border-surface-container px-6 py-4">
+      <div className="flex shrink-0 items-center justify-between border-b border-surface-container px-4 py-3 sm:px-6 sm:py-4">
         <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-on-surface-variant font-headline">{title}</h3>
         <button onClick={onClose} className="rounded-full p-2 text-outline-variant hover:bg-surface-container transition-colors">
           <span className="material-symbols-outlined text-sm">close</span>
         </button>
       </div>
-      <div className="overflow-y-auto p-6">{children}</div>
+      <div className="overflow-y-auto p-3 sm:p-6">{children}</div>
     </div>
   </div>
 );
@@ -79,32 +79,32 @@ const ProjectCard = React.memo(({ project, onSync, onOpenBack, onOpenSettings, o
   const remainingMin = Math.max(0, Math.ceil(remainingMs / 60000));
 
   return (
-  <div className="group bg-surface-container-lowest p-6 rounded-2xl hover:shadow-2xl hover:shadow-on-surface/5 transition-all duration-500 ring-1 ring-outline-variant/10 hover:ring-primary/20">
-    <div className="flex justify-between items-start mb-6">
+  <div className="group bg-surface-container-lowest p-4 sm:p-5 rounded-2xl hover:shadow-2xl hover:shadow-on-surface/5 transition-all duration-500 ring-1 ring-outline-variant/10 hover:ring-primary/20">
+    <div className="flex justify-between items-start mb-4">
       <span className={`px-2 py-1 text-[9px] font-black rounded uppercase tracking-wider ${badgeClass}`}>
         {badgeText}
       </span>
-      <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-100">
-        <button onClick={() => onSync(project)} className="group/ctrl relative inline-flex h-10 w-10 items-center justify-center rounded-lg text-on-surface hover:text-primary transition-colors duration-100 hover:bg-primary/5">
+      <div className="flex gap-1.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-100">
+        <button disabled={isBusy} onClick={() => onSync(project)} className="group/ctrl relative inline-flex h-8 w-8 items-center justify-center rounded-lg text-on-surface hover:text-primary transition-colors duration-100 hover:bg-primary/5 disabled:opacity-40">
           <span className="material-symbols-outlined text-sm">sync</span>
           <span className="pointer-events-none absolute -bottom-7 left-1/2 -translate-x-1/2 rounded bg-black px-2 py-0.5 text-[10px] font-bold text-white opacity-0 transition-opacity duration-75 group-hover/ctrl:opacity-100">Update</span>
         </button>
-        <button onClick={() => onOpenBack(project)} className="group/ctrl relative inline-flex h-10 w-10 items-center justify-center rounded-lg text-on-surface hover:text-primary transition-colors duration-100 hover:bg-primary/5">
+        <button disabled={isBusy} onClick={() => onOpenBack(project)} className="group/ctrl relative inline-flex h-8 w-8 items-center justify-center rounded-lg text-on-surface hover:text-primary transition-colors duration-100 hover:bg-primary/5 disabled:opacity-40">
           <span className="material-symbols-outlined text-sm">settings_backup_restore</span>
           <span className="pointer-events-none absolute -bottom-7 left-1/2 -translate-x-1/2 rounded bg-black px-2 py-0.5 text-[10px] font-bold text-white opacity-0 transition-opacity duration-75 group-hover/ctrl:opacity-100">Backversion</span>
         </button>
-        <button onClick={() => onOpenSettings(project)} className="group/ctrl relative inline-flex h-10 w-10 items-center justify-center rounded-lg text-on-surface hover:text-primary transition-colors duration-100 hover:bg-primary/5">
+        <button disabled={isBusy} onClick={() => onOpenSettings(project)} className="group/ctrl relative inline-flex h-8 w-8 items-center justify-center rounded-lg text-on-surface hover:text-primary transition-colors duration-100 hover:bg-primary/5 disabled:opacity-40">
           <span className="material-symbols-outlined text-sm">settings</span>
           <span className="pointer-events-none absolute -bottom-7 left-1/2 -translate-x-1/2 rounded bg-black px-2 py-0.5 text-[10px] font-bold text-white opacity-0 transition-opacity duration-75 group-hover/ctrl:opacity-100">Config</span>
         </button>
-        <button onClick={() => onOpenDelete(project)} className="group/ctrl relative ml-1 inline-flex h-[38px] w-[38px] items-center justify-center rounded-lg bg-red-600 text-[9px] font-black uppercase leading-none text-white shadow-lg shadow-red-600/20 transition-colors duration-100">
+        <button disabled={isBusy} onClick={() => onOpenDelete(project)} className="group/ctrl relative ml-0.5 inline-flex h-8 w-8 items-center justify-center rounded-lg bg-red-600 text-[8px] font-black uppercase leading-none text-white shadow-lg shadow-red-600/20 transition-colors duration-100 disabled:opacity-40">
           DEL
           <span className="pointer-events-none absolute -bottom-7 left-1/2 -translate-x-1/2 rounded bg-black px-2 py-0.5 text-[10px] font-bold text-white opacity-0 transition-opacity duration-75 group-hover/ctrl:opacity-100">Delete</span>
         </button>
       </div>
     </div>
-    <h4 className="text-lg font-bold tracking-tight mb-1 group-hover:text-primary transition-colors">{project.name}</h4>
-    <p className="text-xs text-on-surface-variant mb-6 font-medium uppercase tracking-wide">{project.type}</p>
+    <h4 className="text-base sm:text-lg font-bold tracking-tight mb-1 group-hover:text-primary transition-colors">{project.name}</h4>
+    <p className="text-[11px] sm:text-xs text-on-surface-variant mb-4 sm:mb-5 font-medium uppercase tracking-wide">{project.type}</p>
     {Array.isArray(project.tags) && project.tags.length > 0 ? (
       <div className="mb-4 flex flex-wrap gap-1.5">
         {project.tags.slice(0, 4).map((tag) => (
@@ -140,7 +140,8 @@ const ProjectCard = React.memo(({ project, onSync, onOpenBack, onOpenSettings, o
 // --- Main App ---
 
 function App() {
-  const [isDark, setIsDark] = useState(false);
+  const [isDark, setIsDark] = useState(() => localStorage.getItem('pdl_theme') === 'dark');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [, setClockTick] = useState(0);
   const [projects, setProjects] = useState(() => {
     const saved = localStorage.getItem('pdl_projects');
@@ -171,6 +172,7 @@ function App() {
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', isDark);
+    localStorage.setItem('pdl_theme', isDark ? 'dark' : 'light');
   }, [isDark]);
 
   useEffect(() => {
@@ -718,11 +720,11 @@ function App() {
   return (
     <div className="min-h-screen bg-surface">
       {/* SideNavBar */}
-      <aside className="h-full w-64 fixed left-0 top-0 flex flex-col p-6 bg-surface-container-low dark:bg-slate-900 z-50 border-r border-outline-variant/10">
+      <aside className={`h-full w-64 fixed left-0 top-0 flex flex-col p-5 bg-surface-container-low z-50 border-r border-outline-variant/10 transition-transform duration-200 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
         <div className="mb-12">
           <div className="flex items-center gap-2 mb-1">
              <div className="h-2 w-2 rounded-full bg-primary shadow-[0_0_10px_rgba(0,123,255,100)]" />
-             <h1 className="text-xl font-black tracking-tighter text-on-surface dark:text-slate-100 uppercase">Pristine</h1>
+             <h1 className="text-xl font-black tracking-tighter text-on-surface uppercase">Pristine</h1>
           </div>
           <p className="text-[10px] uppercase tracking-[0.2em] text-on-surface-variant font-bold">System Terminal</p>
         </div>
@@ -736,22 +738,35 @@ function App() {
             <span className="material-symbols-outlined text-[16px] font-black">add</span>
             New Deployment
           </button>
-          <button onClick={() => setIsDark(!isDark)} className="w-full py-3.5 px-4 bg-surface-container-high text-on-surface-variant rounded-2xl text-[10px] font-bold uppercase tracking-widest hover:bg-surface-variant transition-colors flex items-center justify-center gap-2">
+          <button onClick={() => setIsDark(!isDark)} className="w-full py-3 px-4 bg-surface-container-high text-on-surface-variant rounded-2xl text-[10px] font-bold uppercase tracking-widest hover:bg-surface-variant transition-colors flex items-center justify-center gap-2">
             <span className="material-symbols-outlined text-sm">{isDark ? 'light_mode' : 'dark_mode'}</span>
             {isDark ? 'Light' : 'Dark'} Mode
           </button>
         </div>
       </aside>
+      {isSidebarOpen ? (
+        <button
+          aria-label="Close sidebar"
+          onClick={() => setIsSidebarOpen(false)}
+          className="fixed inset-0 z-40 bg-black/30 lg:hidden"
+        />
+      ) : null}
 
       {/* TopNavBar */}
-      <header className="fixed top-0 right-0 w-[calc(100%-16rem)] z-40 bg-surface/90 dark:bg-slate-950/90 flex justify-between items-center px-10 py-5 ml-64 border-b border-outline-variant/10">
-        <div className="flex items-center flex-1 max-w-3xl gap-3">
+      <header className="fixed top-0 right-0 left-0 lg:left-64 z-40 bg-surface/90 backdrop-blur-md flex justify-between items-center px-4 sm:px-6 lg:px-8 py-3 sm:py-4 border-b border-outline-variant/10">
+        <div className="flex items-center flex-1 max-w-3xl gap-2 sm:gap-3">
+          <button
+            onClick={() => setIsSidebarOpen(true)}
+            className="inline-flex lg:hidden h-10 w-10 items-center justify-center rounded-xl bg-surface-container-low ring-1 ring-outline-variant/20"
+          >
+            <span className="material-symbols-outlined text-base">menu</span>
+          </button>
           <div className="relative w-full group">
-            <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline-variant text-sm group-focus-within:text-primary transition-colors">search</span>
+            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline-variant text-sm group-focus-within:text-primary transition-colors">search</span>
             <input 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-surface-container-low dark:bg-slate-900 border-none rounded-2xl py-3 pl-11 pr-4 text-xs font-semibold focus:ring-1 focus:ring-primary/20 placeholder:text-outline-variant/60 outline-none transition-all" 
+              className="w-full bg-surface-container-low border-none rounded-2xl py-2.5 pl-10 pr-3 text-xs font-semibold focus:ring-1 focus:ring-primary/20 placeholder:text-outline-variant/60 outline-none transition-all" 
               placeholder="Search infrastructure nodes..." 
               type="text"
             />
@@ -759,7 +774,7 @@ function App() {
           <select
             value={activeTagFilter}
             onChange={(e) => setActiveTagFilter(e.target.value)}
-            className="min-w-[180px] rounded-2xl bg-surface-container-low dark:bg-slate-900 px-3 py-3 text-xs font-black uppercase tracking-wider text-on-surface ring-1 ring-outline-variant/20 outline-none focus:ring-primary/30"
+            className="hidden sm:block min-w-[160px] rounded-2xl bg-surface-container-low px-3 py-2.5 text-xs font-black uppercase tracking-wider text-on-surface ring-1 ring-outline-variant/20 outline-none focus:ring-primary/30"
           >
             <option value="all">All Tags ({projects.length})</option>
             {tagCatalog.map((tag) => (
@@ -769,29 +784,35 @@ function App() {
             ))}
           </select>
         </div>
-        <div className="flex items-center gap-8 ml-8 text-on-surface-variant">
-           <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 sm:gap-4 ml-2 sm:ml-6 text-on-surface-variant">
+           <div className="flex items-center gap-2">
               <button
                 onClick={runSelfUpdate}
                 disabled={!selfUpdateTarget.enabled || isBusy}
-                className="rounded-xl border border-primary/20 bg-primary/10 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-primary transition hover:bg-primary/15 disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-xl border border-primary/20 bg-primary/10 px-2.5 sm:px-3 py-2 text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-primary transition hover:bg-primary/15 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Self Update
               </button>
-              <span className="material-symbols-outlined cursor-pointer hover:text-primary transition-colors opacity-60 hover:opacity-100">refresh</span>
-              <span className="material-symbols-outlined cursor-pointer hover:text-primary transition-colors opacity-60 hover:opacity-100">history</span>
-              <span className="material-symbols-outlined cursor-pointer hover:text-primary transition-colors opacity-60 hover:opacity-100">settings</span>
+              <button className="hidden sm:inline-flex h-8 w-8 items-center justify-center rounded-lg hover:bg-surface-container-low">
+                <span className="material-symbols-outlined cursor-pointer hover:text-primary transition-colors opacity-60 hover:opacity-100 text-[20px]">refresh</span>
+              </button>
+              <button className="hidden sm:inline-flex h-8 w-8 items-center justify-center rounded-lg hover:bg-surface-container-low">
+                <span className="material-symbols-outlined cursor-pointer hover:text-primary transition-colors opacity-60 hover:opacity-100 text-[20px]">history</span>
+              </button>
            </div>
-           <div className="h-9 w-9 rounded-2xl bg-primary/10 flex items-center justify-center overflow-hidden border border-primary/20">
+           <button onClick={() => setIsDark(!isDark)} className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-surface-container-low ring-1 ring-outline-variant/20">
+             <span className="material-symbols-outlined text-[18px]">{isDark ? 'light_mode' : 'dark_mode'}</span>
+           </button>
+           <div className="hidden sm:flex h-9 w-9 rounded-2xl bg-primary/10 items-center justify-center overflow-hidden border border-primary/20">
               <img src="https://ui-avatars.com/api/?name=Horaus&background=005bc0&color=fff" className="h-full w-full object-cover" alt="User" />
            </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="ml-64 pt-28 px-10 pb-12 min-h-screen">
+      <main className="lg:ml-64 pt-24 sm:pt-24 px-4 sm:px-6 lg:px-8 pb-10 min-h-screen">
         {/* Hero Metrics */}
-        <section className="grid grid-cols-1 lg:grid-cols-2 gap-12 mb-16 items-end">
+        <section className="grid grid-cols-1 lg:grid-cols-2 gap-7 sm:gap-10 mb-10 sm:mb-14 items-end">
           <Metric 
             label="Active Services" 
             value={projects.length} 
@@ -811,12 +832,12 @@ function App() {
 
         {/* Bento Grid */}
         <section className="mb-16">
-          <div className="flex items-center justify-between mb-10">
-            <h2 className="text-2xl font-black tracking-tighter uppercase">Infrastructure Node Grid</h2>
-            <div className="h-px flex-1 bg-surface-container mx-8"></div>
-            <span className="text-[10px] font-black text-outline uppercase tracking-widest">Real-time Telemetry</span>
+          <div className="flex items-center justify-between mb-6 sm:mb-8 gap-3">
+            <h2 className="text-lg sm:text-2xl font-black tracking-tighter uppercase">Infrastructure Node Grid</h2>
+            <div className="h-px flex-1 bg-surface-container mx-2 sm:mx-6"></div>
+            <span className="hidden sm:inline text-[10px] font-black text-outline uppercase tracking-widest">Real-time Telemetry</span>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-4 gap-4 sm:gap-5">
             {mergedFilteredProjects.map(project => (
               <ProjectCard 
                 key={project.id} 
@@ -852,7 +873,7 @@ function App() {
       {/* Modals Layer */}
       {selectedProject && (
         <ModalWrapper title={`${selectedProject.name} Configuration`} onClose={() => setSelectedProject(null)}>
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 items-start">
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-5 items-start">
             <div className="rounded-xl border border-surface-container bg-surface-container-low p-3 space-y-3">
               <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant">Source & Domain</p>
               <div className="space-y-2">
@@ -864,7 +885,7 @@ function App() {
                   className="w-full rounded-xl border border-surface-container bg-surface px-3 py-2 text-xs outline-none focus:ring-1 focus:ring-primary/30"
                 />
               </div>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 <div className="col-span-1 space-y-2">
                   <label className="text-[10px] uppercase tracking-widest text-outline-variant font-bold">Subdomain</label>
                   <input
@@ -928,7 +949,7 @@ function App() {
               </div>
               <div className="rounded-xl border border-surface-container bg-surface p-3">
                 <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant mb-2">Cloudflare Guide</p>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   <button
                     onClick={() => copyText('cname', 'record type')}
                     className="rounded-lg border border-surface-container bg-surface-container-low px-3 py-2 text-left"
@@ -1050,14 +1071,14 @@ function App() {
                   className="w-full rounded-xl border border-surface-container bg-surface px-3 py-2 text-xs outline-none focus:ring-1 focus:ring-primary/30"
                 />
               </div>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 <button
                   onClick={() => {
                     saveProjectSettings();
                     executeAction(selectedProject.folder, 'update');
                     setSelectedProject(null);
                   }}
-                  className="w-full py-3 bg-primary text-white rounded-xl text-[10px] font-black uppercase tracking-widest"
+                  className="w-full py-2.5 bg-primary text-white rounded-xl text-[10px] font-black uppercase tracking-widest"
                 >
                   Update
                 </button>
@@ -1073,7 +1094,7 @@ function App() {
                         setSelectedProject(null);
                       });
                   }}
-                  className="w-full py-3 bg-surface-container-high rounded-xl text-[10px] font-black uppercase tracking-widest"
+                  className="w-full py-2.5 bg-surface-container-high rounded-xl text-[10px] font-black uppercase tracking-widest"
                 >
                   Backversion
                 </button>
@@ -1082,7 +1103,7 @@ function App() {
                     setDeleteModal(selectedProject);
                     setSelectedProject(null);
                   }}
-                  className="w-full py-3 bg-red-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest"
+                  className="w-full py-2.5 bg-red-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest"
                 >
                   Delete
                 </button>
@@ -1104,7 +1125,7 @@ function App() {
                   }
                   setSelectedProject(null);
                 }}
-                className={`w-full py-3 rounded-xl text-[10px] font-black uppercase tracking-widest ${
+                className={`w-full py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest ${
                   selectedProject.lifecycle === 'maintenance' ? 'bg-emerald-600 text-white' : 'bg-amber-600 text-white'
                 }`}
               >
@@ -1152,7 +1173,7 @@ function App() {
       )}
 
       {/* Toasts Container */}
-      <div className="fixed bottom-10 right-10 z-[200] flex flex-col gap-4 pointer-events-none">
+      <div className="fixed bottom-4 right-3 sm:bottom-10 sm:right-10 z-[200] flex w-[min(92vw,360px)] flex-col gap-2 sm:gap-4 pointer-events-none">
         {toasts.map(t => <Toast key={t.id} {...t} onClose={() => setToasts((prev) => prev.filter(x => x.id !== t.id))} />)}
       </div>
     </div>
