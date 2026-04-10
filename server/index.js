@@ -229,15 +229,22 @@ const runRealtimeJob = ({ command, action, folder, onSuccess }) => {
   return job;
 };
 
-const execPromise = (command) =>
+const execPromise = (command, options = {}) =>
   new Promise((resolve, reject) => {
-    exec(command, (error, stdout, stderr) => {
+    exec(
+      command,
+      {
+        maxBuffer: options.maxBuffer || 4 * 1024 * 1024,
+        timeout: options.timeout || 15000,
+      },
+      (error, stdout, stderr) => {
       if (error) {
         reject({ error, stdout, stderr });
         return;
       }
       resolve({ stdout, stderr });
-    });
+      },
+    );
   });
 
 const parseHostsFromRule = (value) => {
@@ -807,7 +814,11 @@ app.get('/api/domains/catalog', async (req, res) => {
     const catalog = await getDomainCatalog(false);
     return res.json(catalog);
   } catch (error) {
-    return res.status(500).json({ error: error.message || 'Cannot load domain catalog' });
+    const fallback = domainCatalogCache?.data || { baseDomains: [], fqdnExamples: [], sourceMeta: { fallback: true, updatedAt: Date.now() } };
+    return res.status(200).json({
+      ...fallback,
+      warning: error.message || 'Cannot load domain catalog',
+    });
   }
 });
 
@@ -816,7 +827,11 @@ app.post('/api/domains/reload', async (req, res) => {
     const catalog = await getDomainCatalog(true);
     return res.json(catalog);
   } catch (error) {
-    return res.status(500).json({ error: error.message || 'Cannot reload domain catalog' });
+    const fallback = domainCatalogCache?.data || { baseDomains: [], fqdnExamples: [], sourceMeta: { fallback: true, updatedAt: Date.now() } };
+    return res.status(200).json({
+      ...fallback,
+      warning: error.message || 'Cannot reload domain catalog',
+    });
   }
 });
 

@@ -7,6 +7,7 @@ const MAX_ACTIVITY_ITEMS = 80;
 const MAX_TOAST_ITEMS = 4;
 const DEFAULT_TUNNEL_ID = 'db4d8d27-c08c-4e42-9afe-b458950b7bb5';
 const TAG_COLOR_OPTIONS = ['#2563EB', '#7C3AED', '#DB2777', '#DC2626', '#EA580C', '#CA8A04', '#16A34A', '#0D9488', '#0891B2', '#4B5563'];
+const DOMAIN_CATALOG_CACHE_KEY = 'pdl_domain_catalog_cache';
 
 const DEFAULT_PROJECTS = [
   { id: 1, name: 'Web MML', repo: 'horaus/mml', folder: 'mml', type: 'Production Environment', status: 'online', endpoint: '192.168.1.104' },
@@ -168,6 +169,18 @@ function App() {
   const [tagDraft, setTagDraft] = useState('');
   const [tagColorDraft, setTagColorDraft] = useState(TAG_COLOR_OPTIONS[0]);
   const [selfUpdateTarget, setSelfUpdateTarget] = useState({ enabled: false, folder: '' });
+  const [newProjectDraft, setNewProjectDraft] = useState({
+    name: '',
+    repo: '',
+    folder: '',
+    type: 'Production Environment',
+    mode: 'production',
+    baseDomain: '',
+    subdomain: '',
+    previewPort: '8088',
+    tag: '',
+    tagColor: TAG_COLOR_OPTIONS[0],
+  });
   const toastDedupRef = useRef(new Map());
 
   useEffect(() => {
@@ -217,15 +230,38 @@ function App() {
       const method = forceReload ? 'POST' : 'GET';
       const res = await fetch(endpoint, { method });
       const data = await res.json();
-      if (res.ok) {
-        setDomainCatalog({
-          baseDomains: Array.isArray(data.baseDomains) ? data.baseDomains : [],
-          fqdnExamples: Array.isArray(data.fqdnExamples) ? data.fqdnExamples : [],
-          sourceMeta: data.sourceMeta || null,
-        });
+      const normalizedCatalog = {
+        baseDomains: Array.isArray(data.baseDomains) ? data.baseDomains : [],
+        fqdnExamples: Array.isArray(data.fqdnExamples) ? data.fqdnExamples : [],
+        sourceMeta: data.sourceMeta || null,
+      };
+
+      if (normalizedCatalog.baseDomains.length > 0 || normalizedCatalog.fqdnExamples.length > 0) {
+        localStorage.setItem(DOMAIN_CATALOG_CACHE_KEY, JSON.stringify(normalizedCatalog));
+      }
+
+      setDomainCatalog(normalizedCatalog);
+      if (!res.ok) {
+        addToast('Domain catalog tạm thời lỗi, đang dùng dữ liệu dự phòng.', 'error');
       }
     } catch (error) {
-      addToast(`Domain catalog load failed: ${error.message}`, 'error');
+      const cachedRaw = localStorage.getItem(DOMAIN_CATALOG_CACHE_KEY);
+      if (cachedRaw) {
+        try {
+          const cached = JSON.parse(cachedRaw);
+          const fallbackCatalog = {
+            baseDomains: Array.isArray(cached.baseDomains) ? cached.baseDomains : [],
+            fqdnExamples: Array.isArray(cached.fqdnExamples) ? cached.fqdnExamples : [],
+            sourceMeta: cached.sourceMeta || null,
+          };
+          setDomainCatalog(fallbackCatalog);
+          addToast('Domain catalog load fail, đã dùng cache local.', 'error');
+        } catch {
+          addToast(`Domain catalog load failed: ${error.message}`, 'error');
+        }
+      } else {
+        addToast(`Domain catalog load failed: ${error.message}`, 'error');
+      }
     } finally {
       setDomainCatalogLoading(false);
     }
@@ -747,6 +783,87 @@ function App() {
   const guideSubdomain = String(selectedProject?.subdomain || '').trim().toLowerCase() || '@';
   const guideTunnelId = dnsStatus?.tunnelId || DEFAULT_TUNNEL_ID;
   const guideTunnelTarget = `${guideTunnelId}.cfargotunnel.com`;
+  const newProjectFqdn = buildFqdn(newProjectDraft.baseDomain, newProjectDraft.subdomain);
+
+  const resetNewProjectDraft = () => {
+    setNewProjectDraft({
+      name: '',
+      repo: '',
+      folder: '',
+      type: 'Production Environment',
+      mode: 'production',
+      baseDomain: (domainCatalog.baseDomains || [])[0] || '',
+      subdomain: '',
+      previewPort: '8088',
+      tag: '',
+      tagColor: TAG_COLOR_OPTIONS[0],
+    });
+  };
+
+  const openNewDeploymentModal = () => {
+    resetNewProjectDraft();
+    setShowNewModal(true);
+  };
+
+  const createNewProject = async () => {
+    const folder = normalizeTagName(newProjectDraft.folder).replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+    const name = String(newProjectDraft.name || '').trim();
+    const repo = String(newProjectDraft.repo || '').trim();
+    const type = String(newProjectDraft.type || '').trim() || 'Production Environment';
+    const mode = newProjectDraft.mode === 'preview' ? 'preview' : 'production';
+    const port = String(newProjectDraft.previewPort || '').trim();
+    const domain = normalizeHost(newProjectFqdn || '');
+
+    if (!name) {
+      addToast('Project name is required', 'error');
+      return;
+    }
+    if (!folder || folder.length < 2) {
+      addToast('Folder invalid (min 2 chars, a-z0-9-)', 'error');
+      return;
+    }
+    if (projects.some((project) => String(project.folder).toLowerCase() === folder.toLowerCase())) {
+      addToast(`Folder ${folder} already exists`, 'error');
+      return;
+    }
+    if (mode === 'production' && !domain) {
+      addToast('Production mode requires base domain/subdomain', 'error');
+      return;
+    }
+    if (mode === 'preview' && !/^\d{2,5}$/.test(port)) {
+      addToast('Preview port is invalid', 'error');
+      return;
+    }
+
+    const nextId = projects.reduce((max, project) => Math.max(max, Number(project.id || 0)), 0) + 1;
+    const nextTags = newProjectDraft.tag
+      ? [{ name: formatTagName(newProjectDraft.tag), color: newProjectDraft.tagColor || TAG_COLOR_OPTIONS[0] }]
+      : [];
+    const nextProject = {
+      id: nextId,
+      name,
+      repo,
+      folder,
+      type,
+      status: 'online',
+      endpoint: mode === 'production' ? domain : `:${port}`,
+      productionDomain: mode === 'production' ? domain : '',
+      baseDomain: newProjectDraft.baseDomain || '',
+      subdomain: String(newProjectDraft.subdomain || '').trim().toLowerCase(),
+      fqdn: mode === 'production' ? domain : '',
+      tags: nextTags,
+    };
+
+    setProjects((prev) => [...prev, nextProject]);
+    setShowNewModal(false);
+    addToast(`Added project ${folder}`, 'success');
+
+    if (mode === 'production') {
+      executeAction(folder, 'deploy', { type: 'production', domain });
+    } else {
+      executeAction(folder, 'deploy', { type: 'preview', port });
+    }
+  };
 
   return (
     <div className="min-h-screen bg-surface">
@@ -765,7 +882,7 @@ function App() {
           <NavItem icon="security" label="Security & DNS" />
         </nav>
         <div className="mt-auto pt-6 space-y-4">
-          <button onClick={() => setShowNewModal(true)} className="w-full py-4 px-4 metric-gradient text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] shadow-lg shadow-primary/20 hover:opacity-90 active:scale-95 transition-all flex items-center justify-center gap-2">
+          <button onClick={openNewDeploymentModal} className="w-full py-4 px-4 metric-gradient text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] shadow-lg shadow-primary/20 hover:opacity-90 active:scale-95 transition-all flex items-center justify-center gap-2">
             <span className="material-symbols-outlined text-[16px] font-black">add</span>
             New Deployment
           </button>
@@ -1169,8 +1286,146 @@ function App() {
 
       {showNewModal && (
         <ModalWrapper title="Initialize Node" onClose={() => setShowNewModal(false)}>
-           <p className="text-xs text-on-surface-variant mb-6 italic">Provision a new isolated environment container.</p>
-           <button onClick={() => setShowNewModal(false)} className="w-full py-4 metric-gradient text-white rounded-2xl text-[10px] font-black uppercase tracking-widest">Start Provisioning</button>
+           <div className="space-y-4">
+             <p className="text-xs text-on-surface-variant">Provision new project and run initial deploy from dashboard.</p>
+             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+               <div className="space-y-2">
+                 <label className="text-[10px] uppercase tracking-widest text-outline-variant font-bold">Project Name</label>
+                 <input
+                   value={newProjectDraft.name}
+                   onChange={(e) => setNewProjectDraft((prev) => ({ ...prev, name: e.target.value }))}
+                   placeholder="My Project"
+                   className="w-full rounded-xl border border-surface-container bg-surface px-3 py-2 text-xs outline-none focus:ring-1 focus:ring-primary/30"
+                 />
+               </div>
+               <div className="space-y-2">
+                 <label className="text-[10px] uppercase tracking-widest text-outline-variant font-bold">Folder</label>
+                 <input
+                   value={newProjectDraft.folder}
+                   onChange={(e) =>
+                     setNewProjectDraft((prev) => ({
+                       ...prev,
+                       folder: String(e.target.value || '').toLowerCase().replace(/[^a-z0-9-]/g, ''),
+                     }))
+                   }
+                   placeholder="my-project"
+                   className="w-full rounded-xl border border-surface-container bg-surface px-3 py-2 text-xs outline-none focus:ring-1 focus:ring-primary/30"
+                 />
+               </div>
+               <div className="space-y-2">
+                 <label className="text-[10px] uppercase tracking-widest text-outline-variant font-bold">GitHub Repo</label>
+                 <input
+                   value={newProjectDraft.repo}
+                   onChange={(e) => setNewProjectDraft((prev) => ({ ...prev, repo: e.target.value }))}
+                   placeholder="owner/repository"
+                   className="w-full rounded-xl border border-surface-container bg-surface px-3 py-2 text-xs outline-none focus:ring-1 focus:ring-primary/30"
+                 />
+               </div>
+               <div className="space-y-2">
+                 <label className="text-[10px] uppercase tracking-widest text-outline-variant font-bold">Type</label>
+                 <input
+                   value={newProjectDraft.type}
+                   onChange={(e) => setNewProjectDraft((prev) => ({ ...prev, type: e.target.value }))}
+                   placeholder="Production Environment"
+                   className="w-full rounded-xl border border-surface-container bg-surface px-3 py-2 text-xs outline-none focus:ring-1 focus:ring-primary/30"
+                 />
+               </div>
+             </div>
+
+             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+               <div className="space-y-2">
+                 <label className="text-[10px] uppercase tracking-widest text-outline-variant font-bold">Deploy Mode</label>
+                 <select
+                   value={newProjectDraft.mode}
+                   onChange={(e) => setNewProjectDraft((prev) => ({ ...prev, mode: e.target.value }))}
+                   className="w-full rounded-xl border border-surface-container bg-surface px-3 py-2 text-xs outline-none focus:ring-1 focus:ring-primary/30"
+                 >
+                   <option value="production">Production (Domain)</option>
+                   <option value="preview">Preview (Port)</option>
+                 </select>
+               </div>
+               {newProjectDraft.mode === 'preview' ? (
+                 <div className="space-y-2">
+                   <label className="text-[10px] uppercase tracking-widest text-outline-variant font-bold">Preview Port</label>
+                   <input
+                     value={newProjectDraft.previewPort}
+                     onChange={(e) => setNewProjectDraft((prev) => ({ ...prev, previewPort: String(e.target.value || '').replace(/[^0-9]/g, '') }))}
+                     placeholder="8088"
+                     className="w-full rounded-xl border border-surface-container bg-surface px-3 py-2 text-xs outline-none focus:ring-1 focus:ring-primary/30"
+                   />
+                 </div>
+               ) : (
+                 <div className="space-y-2">
+                   <label className="text-[10px] uppercase tracking-widest text-outline-variant font-bold">Base Domain</label>
+                   <div className="flex gap-2">
+                     <select
+                       value={newProjectDraft.baseDomain}
+                       onChange={(e) => setNewProjectDraft((prev) => ({ ...prev, baseDomain: normalizeHost(e.target.value) }))}
+                       className="w-full rounded-xl border border-surface-container bg-surface px-3 py-2 text-xs outline-none focus:ring-1 focus:ring-primary/30"
+                     >
+                       <option value="">Select base domain</option>
+                       {(domainCatalog.baseDomains || []).map((base) => (
+                         <option key={`new-${base}`} value={base}>{base}</option>
+                       ))}
+                     </select>
+                     <button
+                       onClick={() => loadDomainCatalog(true)}
+                       className="rounded-xl bg-surface px-3 py-2 text-[10px] font-black uppercase tracking-widest ring-1 ring-outline-variant/20"
+                     >
+                       {domainCatalogLoading ? '...' : 'Reload'}
+                     </button>
+                   </div>
+                 </div>
+               )}
+             </div>
+
+             {newProjectDraft.mode === 'production' ? (
+               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                 <div className="space-y-2">
+                   <label className="text-[10px] uppercase tracking-widest text-outline-variant font-bold">Subdomain</label>
+                   <input
+                     value={newProjectDraft.subdomain}
+                     onChange={(e) => setNewProjectDraft((prev) => ({ ...prev, subdomain: String(e.target.value || '').toLowerCase().replace(/[^a-z0-9-]/g, '') }))}
+                     placeholder="app"
+                     className="w-full rounded-xl border border-surface-container bg-surface px-3 py-2 text-xs outline-none focus:ring-1 focus:ring-primary/30"
+                   />
+                 </div>
+                 <div className="sm:col-span-2 space-y-2">
+                   <label className="text-[10px] uppercase tracking-widest text-outline-variant font-bold">Full Domain</label>
+                   <input
+                     value={newProjectFqdn}
+                     readOnly
+                     className="w-full rounded-xl border border-surface-container bg-surface px-3 py-2 text-xs text-on-surface-variant"
+                   />
+                 </div>
+               </div>
+             ) : null}
+
+             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
+               <div className="space-y-2">
+                 <label className="text-[10px] uppercase tracking-widest text-outline-variant font-bold">Initial Tag</label>
+                 <input
+                   value={newProjectDraft.tag}
+                   onChange={(e) => setNewProjectDraft((prev) => ({ ...prev, tag: e.target.value }))}
+                   placeholder="frontend"
+                   className="w-full rounded-xl border border-surface-container bg-surface px-3 py-2 text-xs outline-none focus:ring-1 focus:ring-primary/30"
+                 />
+               </div>
+               <div className="flex gap-2">
+                 {TAG_COLOR_OPTIONS.slice(0, 6).map((color) => (
+                   <button
+                     key={`new-tag-${color}`}
+                     onClick={() => setNewProjectDraft((prev) => ({ ...prev, tagColor: color }))}
+                     className={`h-6 w-6 rounded-full ring-2 ${newProjectDraft.tagColor === color ? 'ring-on-surface' : 'ring-transparent'}`}
+                     style={{ backgroundColor: color }}
+                   />
+                 ))}
+               </div>
+               <button onClick={createNewProject} className="w-full py-3 metric-gradient text-white rounded-2xl text-[10px] font-black uppercase tracking-widest">
+                 Start Provisioning
+               </button>
+             </div>
+           </div>
         </ModalWrapper>
       )}
 
