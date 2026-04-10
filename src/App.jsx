@@ -591,7 +591,38 @@ function App() {
       }
 
       addToast('Self-update đã bắt đầu. Dashboard có thể ngắt kết nối tạm thời trong lúc restart.', 'success');
-      pollJob(data.jobId, 'update', selfUpdateTarget.folder);
+      const waitForSelfRecovery = async () => {
+        const maxAttempts = 80; // ~3m20s with 2.5s interval
+        for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+          await new Promise((resolve) => setTimeout(resolve, 2500));
+          try {
+            const ping = await fetch(`${API_BASE}/api/self/info`, { cache: 'no-store' });
+            if (!ping.ok) continue;
+
+            addToast('Dashboard backend đã online lại sau self-update.', 'success');
+            addActivity({
+              icon: 'check_circle',
+              message: 'Self update completed',
+              target: selfUpdateTarget.folder,
+              color: 'text-emerald-500',
+            });
+            syncProjectsMeta();
+            return;
+          } catch {
+            // Expected while container is restarting.
+          }
+        }
+
+        addToast('Self-update đã chạy nhưng backend chưa phản hồi lại. Hãy refresh sau 1-2 phút.', 'error');
+        addActivity({
+          icon: 'error',
+          message: 'Self update timeout waiting for backend',
+          target: selfUpdateTarget.folder,
+          color: 'text-red-600',
+        });
+      };
+
+      waitForSelfRecovery();
     } catch (error) {
       addToast(`Self-update error: ${error.message}`, 'error');
       addActivity({
