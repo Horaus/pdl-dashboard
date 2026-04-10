@@ -57,6 +57,16 @@ Bạn có thể đổi port/path trong `.env`:
 - `BACKEND_PORT`
 - `WEBS_HOME`
 - `SRV_WEBS_HOME`
+- `SELF_UPDATE_ENABLED` (bật/tắt cập nhật chính dashboard từ UI)
+- `SELF_UPDATE_FOLDER` (tên folder project dashboard, mặc định `pdl-dashboard`)
+
+## 4.1) Self-update cho chính dashboard
+
+Sau khi cập nhật tay lần này, dashboard có thể tự cập nhật lần sau:
+
+- UI có nút **Self Update** ở thanh top bar.
+- Backend dùng `SELF_UPDATE_FOLDER` để chạy luồng `update` cho chính project này.
+- Khi chạy self-update, backend/frontend có thể restart tạm thời, trình duyệt có thể mất kết nối vài giây.
 
 ## 5) Push lên GitHub đúng chuẩn
 

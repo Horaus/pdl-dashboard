@@ -20,6 +20,8 @@ services:
       - PORT=${BACKEND_PORT:-3001}
       - WEBS_HOME=${WEBS_HOME:-/home/pdl1host/webs}
       - SRV_WEBS_HOME=${SRV_WEBS_HOME:-/srv/webs}
+      - SELF_UPDATE_ENABLED=${SELF_UPDATE_ENABLED:-true}
+      - SELF_UPDATE_FOLDER=${SELF_UPDATE_FOLDER:-pdl-dashboard}
     working_dir: /app
     volumes:
       - ${WEBS_HOME:-/home/pdl1host/webs}:${WEBS_HOME:-/home/pdl1host/webs}
@@ -27,4 +29,3 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
     ports:
       - "${BACKEND_PORT:-3001}:3001"
-

@@ -8,6 +8,8 @@ const { randomUUID } = require('crypto');
 
 const app = express();
 const PORT = Number(process.env.PORT || 3001);
+const SELF_UPDATE_ENABLED = String(process.env.SELF_UPDATE_ENABLED || 'true').toLowerCase() !== 'false';
+const SELF_UPDATE_FOLDER_RAW = process.env.SELF_UPDATE_FOLDER || process.env.PROJECT_NAME || 'pdl-dashboard';
 
 app.use(cors());
 app.use(bodyParser.json());
@@ -26,6 +28,7 @@ const autoDeleteLocks = new Set();
 let domainCatalogCache = null;
 
 const normalizeFolder = (value) => String(value || '').replace(/[^a-zA-Z0-9-]/g, '');
+const SELF_UPDATE_FOLDER = normalizeFolder(SELF_UPDATE_FOLDER_RAW);
 
 const loadState = () => {
   try {
@@ -815,6 +818,47 @@ app.post('/api/domains/reload', async (req, res) => {
   } catch (error) {
     return res.status(500).json({ error: error.message || 'Cannot reload domain catalog' });
   }
+});
+
+app.get('/api/self/info', (req, res) => {
+  return res.json({
+    enabled: SELF_UPDATE_ENABLED && Boolean(SELF_UPDATE_FOLDER),
+    folder: SELF_UPDATE_FOLDER || null,
+    action: 'update',
+  });
+});
+
+app.post('/api/self/update', async (req, res) => {
+  if (!SELF_UPDATE_ENABLED || !SELF_UPDATE_FOLDER) {
+    return res.status(403).json({ error: 'Self update is disabled' });
+  }
+
+  const command = buildCommand({
+    action: 'update',
+    folder: SELF_UPDATE_FOLDER,
+  });
+
+  if (!command) {
+    return res.status(400).json({ error: 'Cannot build self-update command' });
+  }
+
+  const job = runRealtimeJob({
+    command,
+    action: 'update',
+    folder: SELF_UPDATE_FOLDER,
+    onSuccess: () => {
+      patchProjectMeta(SELF_UPDATE_FOLDER, { lifecycle: 'active' });
+      return { self: true };
+    },
+  });
+
+  return res.json({
+    jobId: job.id,
+    status: 'running',
+    action: 'update',
+    folder: SELF_UPDATE_FOLDER,
+    self: true,
+  });
 });
 
 app.listen(PORT, () => {

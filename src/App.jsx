@@ -166,6 +166,7 @@ function App() {
   const [activeTagFilter, setActiveTagFilter] = useState('all');
   const [tagDraft, setTagDraft] = useState('');
   const [tagColorDraft, setTagColorDraft] = useState(TAG_COLOR_OPTIONS[0]);
+  const [selfUpdateTarget, setSelfUpdateTarget] = useState({ enabled: false, folder: '' });
   const toastDedupRef = useRef(new Map());
 
   useEffect(() => {
@@ -231,6 +232,20 @@ function App() {
   useEffect(() => {
     loadDomainCatalog(false);
   }, [loadDomainCatalog]);
+
+  useEffect(() => {
+    fetch(`${API_BASE}/api/self/info`)
+      .then((r) => r.json())
+      .then((data) => {
+        setSelfUpdateTarget({
+          enabled: Boolean(data?.enabled),
+          folder: String(data?.folder || ''),
+        });
+      })
+      .catch(() => {
+        setSelfUpdateTarget({ enabled: false, folder: '' });
+      });
+  }, []);
 
   const addActivity = useCallback((entry) => {
     const item = {
@@ -538,6 +553,56 @@ function App() {
     }
   };
 
+  const runSelfUpdate = async () => {
+    if (!selfUpdateTarget.enabled || !selfUpdateTarget.folder) {
+      addToast('Self-update chưa được bật ở backend', 'error');
+      return;
+    }
+
+    if (isBusy) return;
+    setIsBusy(true);
+    addToast(`Triggering self-update on ${selfUpdateTarget.folder}...`);
+    addActivity({
+      icon: 'system_update',
+      message: 'Self update running',
+      target: selfUpdateTarget.folder,
+      color: 'text-primary',
+    });
+
+    try {
+      const res = await fetch(`${API_BASE}/api/self/update`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const data = await res.json();
+
+      if (!res.ok || !data.jobId) {
+        const errText = data.error || 'Self-update request failed';
+        addToast(errText, 'error');
+        addActivity({
+          icon: 'error',
+          message: errText,
+          target: selfUpdateTarget.folder,
+          color: 'text-red-600',
+        });
+        return;
+      }
+
+      addToast('Self-update đã bắt đầu. Dashboard có thể ngắt kết nối tạm thời trong lúc restart.', 'success');
+      pollJob(data.jobId, 'update', selfUpdateTarget.folder);
+    } catch (error) {
+      addToast(`Self-update error: ${error.message}`, 'error');
+      addActivity({
+        icon: 'error',
+        message: error.message,
+        target: selfUpdateTarget.folder,
+        color: 'text-red-600',
+      });
+    } finally {
+      setIsBusy(false);
+    }
+  };
+
   const filteredProjects = useMemo(() => {
     const keyword = searchTerm.toLowerCase();
     return projects.filter((p) => {
@@ -705,7 +770,14 @@ function App() {
           </select>
         </div>
         <div className="flex items-center gap-8 ml-8 text-on-surface-variant">
-           <div className="flex items-center gap-5">
+           <div className="flex items-center gap-3">
+              <button
+                onClick={runSelfUpdate}
+                disabled={!selfUpdateTarget.enabled || isBusy}
+                className="rounded-xl border border-primary/20 bg-primary/10 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-primary transition hover:bg-primary/15 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Self Update
+              </button>
               <span className="material-symbols-outlined cursor-pointer hover:text-primary transition-colors opacity-60 hover:opacity-100">refresh</span>
               <span className="material-symbols-outlined cursor-pointer hover:text-primary transition-colors opacity-60 hover:opacity-100">history</span>
               <span className="material-symbols-outlined cursor-pointer hover:text-primary transition-colors opacity-60 hover:opacity-100">settings</span>
