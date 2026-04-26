@@ -34,6 +34,11 @@ function setup_standard() {
         git clone "$repo_url" "$SRV_PATH/source"
     fi
 
+    if [ -f "$SRV_PATH/source/docker-compose.yml" ] || [ -f "$SRV_PATH/source/compose.yml" ]; then
+        echo "Project $PROJECT_NAME provides its own Docker Compose file; PDL will use it for deployment."
+        return
+    fi
+
     # Tự động nhận diện context (thư mục chứa mã nguồn)
     local context="source"
     if [ ! -d "$SRV_PATH/source" ]; then
@@ -88,6 +93,57 @@ server {
 }
 EON
     fi
+}
+
+function source_compose_file() {
+    if [ -f "$SRV_PATH/source/docker-compose.yml" ]; then
+        echo "$SRV_PATH/source/docker-compose.yml"
+        return
+    fi
+    if [ -f "$SRV_PATH/source/compose.yml" ]; then
+        echo "$SRV_PATH/source/compose.yml"
+        return
+    fi
+    echo ""
+}
+
+function create_compose_from_source() {
+    local port=$1
+    local compose_source
+    compose_source=$(source_compose_file)
+    if [ -z "$compose_source" ]; then
+        return 1
+    fi
+
+    cp "$compose_source" "$SRV_PATH/docker-compose.yml"
+    python3 - "$SRV_PATH/docker-compose.yml" "${port:-}" <<'PY'
+import re
+import sys
+from pathlib import Path
+
+compose_path = Path(sys.argv[1])
+port = sys.argv[2]
+text = compose_path.read_text()
+
+text = text.replace('./', './source/')
+text = re.sub(r'(^\s*build:\s*)\.(\s*)$', r'\1./source\2', text, flags=re.MULTILINE)
+
+if port:
+    patterns = [
+        (r'(["\']?)(?:127\.0\.0\.1:|0\.0\.0\.0:)?\d+:(80|8000|3000)(["\']?)', rf'\g<1>{port}:\g<2>\g<3>'),
+        (r'(["\']?)(?:127\.0\.0\.1:|0\.0\.0\.0:)?\d+:\d+(["\']?)', rf'\g<1>{port}:80\g<2>'),
+    ]
+
+    for pattern, replacement in patterns:
+        text, count = re.subn(pattern, replacement, text, count=1)
+        if count:
+            break
+    else:
+        text += f'\n# PDL could not find an existing port mapping to rewrite to {port}.\n'
+
+compose_path.write_text(text)
+PY
+    return 0
 }
 
 function find_repo_path() {
@@ -163,6 +219,9 @@ networks:
     external: true
 EOC
     elif [ -n "$port" ] && [ "$port" != "80" ] && [ -z "$domain" ]; then
+        if create_compose_from_source "$port"; then
+            return
+        fi
         # Preview mode
         cat > "$SRV_PATH/docker-compose.yml" <<EOC
 version: '3'

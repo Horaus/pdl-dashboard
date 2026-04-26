@@ -48,6 +48,26 @@ const getProjectPreviewPort = (project) => {
   return candidates.map((value) => String(value || '').trim()).find((value) => /^\d{2,5}$/.test(value)) || '';
 };
 
+const normalizeDisplayUrl = (value) => {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  if (/^https?:\/\//i.test(raw)) return raw;
+  if (raw.startsWith(':')) return '';
+  if (/^[a-z0-9.-]+(?::\d+)?(?:\/.*)?$/i.test(raw)) return `https://${raw}`;
+  return '';
+};
+
+const buildProjectOpenUrl = (project, serverInfo = {}) => {
+  const domainUrl = normalizeDisplayUrl(project?.fqdn || project?.productionDomain || project?.runtime?.domain || project?.productionUrl);
+  if (domainUrl) return domainUrl;
+
+  const previewPort = getProjectPreviewPort(project);
+  const tailscaleIp = String(serverInfo?.tailscaleIp || window.location.hostname || '').trim();
+  if (previewPort && tailscaleIp) return `http://${tailscaleIp}:${previewPort}/`;
+
+  return normalizeDisplayUrl(project?.endpoint);
+};
+
 // --- Sub-components ---
 
 const Toast = ({ message, type, onClose }) => {
@@ -97,7 +117,7 @@ const Metric = ({ label, value, detail }) => (
   </div>
 );
 
-const ProjectCard = React.memo(({ project, nowTs, onSync, onOpenBack, onOpenSettings, onOpenDelete, isBusy }) => {
+const ProjectCard = React.memo(({ project, nowTs, serverInfo, onSync, onOpenBack, onOpenSettings, onOpenDelete, isBusy }) => {
   const lifecycle = project.lifecycle || 'active';
   const badgeText = lifecycle === 'maintenance' ? 'Maintenance' : (project.status || 'Online');
   const badgeClass = lifecycle === 'maintenance' ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-600';
@@ -109,6 +129,8 @@ const ProjectCard = React.memo(({ project, nowTs, onSync, onOpenBack, onOpenSett
   const progressPercent = totalWindow > 0 ? Math.max(0, Math.min(100, (elapsed / totalWindow) * 100)) : 0;
   const remainingMs = hasMaintenanceWindow ? maintenanceEndTs - nowTs : 0;
   const remainingMin = Math.max(0, Math.ceil(remainingMs / 60000));
+  const openUrl = buildProjectOpenUrl(project, serverInfo);
+  const nodeLabel = openUrl || project.productionUrl || project.endpoint || 'Initializing...';
 
   return (
   <div className="group bg-surface-container-lowest p-4 sm:p-5 rounded-2xl hover:shadow-2xl hover:shadow-on-surface/5 transition-all duration-500 ring-1 ring-outline-variant/10 hover:ring-primary/20">
@@ -163,7 +185,19 @@ const ProjectCard = React.memo(({ project, nowTs, onSync, onOpenBack, onOpenSett
     ) : null}
     <div className="pt-4 border-t border-surface-container">
       <p className="text-[10px] font-mono text-outline uppercase tracking-tighter">Production Node</p>
-      <p className="text-sm font-semibold truncate text-on-surface/80">{project.productionUrl || project.endpoint || 'Initializing...'}</p>
+      {openUrl ? (
+        <a
+          href={openUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="block truncate text-sm font-semibold text-primary hover:underline"
+          title={openUrl}
+        >
+          {nodeLabel}
+        </a>
+      ) : (
+        <p className="text-sm font-semibold truncate text-on-surface/80">{nodeLabel}</p>
+      )}
     </div>
   </div>
   );
@@ -182,6 +216,7 @@ function App() {
   const [searchTerm, setSearchTerm] = useState('');
   const [toasts, setToasts] = useState([]);
   const [serverMeta, setServerMeta] = useState({});
+  const [serverInfo, setServerInfo] = useState({ tailscaleIp: '' });
   const [isBusy, setIsBusy] = useState(false);
   
   // Modal states
@@ -254,6 +289,13 @@ function App() {
     const interval = setInterval(syncProjectsMeta, SERVER_SYNC_INTERVAL_MS);
     return () => clearInterval(interval);
   }, [syncProjectsMeta]);
+
+  useEffect(() => {
+    fetch(`${API_BASE}/api/server/info`)
+      .then((res) => res.json())
+      .then((data) => setServerInfo({ tailscaleIp: data.tailscaleIp || '' }))
+      .catch(() => {});
+  }, []);
 
   const loadDomainCatalog = useCallback(async (forceReload = false) => {
     setDomainCatalogLoading(true);
@@ -1074,6 +1116,7 @@ function App() {
                 key={project.id} 
                 project={project}
                 nowTs={nowTs}
+                serverInfo={serverInfo}
                 onSync={runUpdateQuickAction}
                 onOpenBack={openRollbackModal}
                 onOpenSettings={openSettingsModal}

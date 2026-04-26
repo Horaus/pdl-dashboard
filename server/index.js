@@ -767,6 +767,21 @@ app.get('/api/projects', (req, res) => {
   });
 });
 
+app.get('/api/server/info', async (req, res) => {
+  let tailscaleIp = null;
+  try {
+    const { stdout } = await execPromise("tailscale ip -4 2>/dev/null | head -n1 || ip -4 addr show tailscale0 2>/dev/null | sed -n 's/.*inet \\([0-9.]*\\).*/\\1/p' | head -n1", { timeout: 5000 });
+    tailscaleIp = String(stdout || '').trim().split('\n').find(Boolean) || null;
+  } catch {
+    tailscaleIp = null;
+  }
+
+  return res.json({
+    tailscaleIp,
+    hostname: process.env.HOSTNAME || null,
+  });
+});
+
 app.post('/api/projects/sync', (req, res) => {
   const folders = Array.isArray(req.body?.folders) ? req.body.folders : [];
   folders
