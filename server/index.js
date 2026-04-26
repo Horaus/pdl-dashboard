@@ -864,31 +864,38 @@ app.post('/api/self/update', async (req, res) => {
     return res.status(403).json({ error: 'Self update is disabled' });
   }
 
-  const command = buildCommand({
-    action: 'update',
-    folder: SELF_UPDATE_FOLDER,
-  });
-
-  if (!command) {
+  const folderSafe = normalizeFolder(SELF_UPDATE_FOLDER);
+  if (!folderSafe) {
     return res.status(400).json({ error: 'Cannot build self-update command' });
   }
 
-  const job = runRealtimeJob({
-    command,
-    action: 'update',
-    folder: SELF_UPDATE_FOLDER,
-    onSuccess: () => {
-      patchProjectMeta(SELF_UPDATE_FOLDER, { lifecycle: 'active' });
-      return { self: true };
-    },
-  });
+  const command = `${detectPathsCommand(folderSafe)} \\
+${ensureSafeGitDirectoryCommand} && cd $REPO_PATH && git pull && \\
+if [ -f manager.sh ]; then cp manager.sh ${shellQuote(path.join(BASE_PATH, 'manager.sh'))} && chmod +x ${shellQuote(path.join(BASE_PATH, 'manager.sh'))}; fi && \\
+cd $ROOT_PATH && docker compose up -d --build --remove-orphans`;
+  const logFile = `/tmp/pdl-dashboard-self-update-${Date.now()}.log`;
+  const launcher = `nohup sh -lc ${shellQuote(command)} > ${shellQuote(logFile)} 2>&1 &`;
+  const jobId = randomUUID();
+
+  try {
+    const child = spawn('sh', ['-lc', launcher], {
+      detached: true,
+      stdio: 'ignore',
+    });
+    child.unref();
+    patchProjectMeta(folderSafe, { lifecycle: 'active' });
+  } catch (error) {
+    return res.status(500).json({ error: error.message || 'Cannot start detached self-update' });
+  }
 
   return res.json({
-    jobId: job.id,
+    jobId,
     status: 'running',
     action: 'update',
-    folder: SELF_UPDATE_FOLDER,
+    folder: folderSafe,
     self: true,
+    detached: true,
+    logFile,
   });
 });
 
