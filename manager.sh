@@ -4,6 +4,7 @@ PROJECT_NAME=$2
 FLOW=$3
 PARAM=$4
 PARAM2=$5
+REPO_URL_RAW=${PDL_REPO_URL:-$6}
 
 # Tìm kiếm thư mục dự án ở các vị trí phổ biến
 if [ -d "/home/pdl1host/webs/$PROJECT_NAME" ]; then
@@ -17,6 +18,21 @@ fi
 
 function setup_standard() {
     mkdir -p "$SRV_PATH"
+
+    if [ -n "$REPO_URL_RAW" ] && [ ! -d "$SRV_PATH/source/.git" ] && [ ! -d "$SRV_PATH/.git" ]; then
+        local repo_url="$REPO_URL_RAW"
+        if [[ "$repo_url" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
+            repo_url="https://github.com/$repo_url.git"
+        fi
+
+        if [[ ! "$repo_url" =~ ^https://github.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(\.git)?$ ]]; then
+            echo "Invalid GitHub repo: $REPO_URL_RAW"
+            exit 1
+        fi
+
+        echo "Cloning $repo_url into $SRV_PATH/source..."
+        git clone "$repo_url" "$SRV_PATH/source"
+    fi
 
     # Tự động nhận diện context (thư mục chứa mã nguồn)
     local context="source"

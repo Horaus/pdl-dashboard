@@ -30,6 +30,16 @@ let domainCatalogCache = null;
 const normalizeFolder = (value) => String(value || '').replace(/[^a-zA-Z0-9-]/g, '');
 const SELF_UPDATE_FOLDER = normalizeFolder(SELF_UPDATE_FOLDER_RAW);
 
+const shellQuote = (value) => `'${String(value || '').replace(/'/g, `'\\''`)}'`;
+
+const normalizeRepoRef = (value) => {
+  const repo = String(value || '').trim();
+  if (!repo) return '';
+  if (/^https:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+(?:\.git)?$/i.test(repo)) return repo;
+  if (/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repo)) return repo;
+  return '';
+};
+
 const loadState = () => {
   try {
     if (!fs.existsSync(STATE_FILE)) {
@@ -111,12 +121,14 @@ else echo "Repository not found in $ROOT_PATH/source or $ROOT_PATH" && exit 2; f
 
 const ensureSafeGitDirectoryCommand = 'git config --global --add safe.directory $REPO_PATH';
 
-const buildCommand = ({ action, folder, type, domain, port, endTime, sha }) => {
+const buildCommand = ({ action, folder, type, domain, port, endTime, sha, repo }) => {
   const folderSafe = normalizeFolder(folder);
   if (!folderSafe) return null;
   const runtimeMeta = getProjectMeta(folderSafe).runtime || {};
   const resolvedDomain = String(domain || runtimeMeta.domain || '').trim();
   const resolvedPort = String(port || runtimeMeta.port || '').trim();
+  const repoRef = normalizeRepoRef(repo);
+  const repoEnv = repoRef ? `PDL_REPO_URL=${shellQuote(repoRef)} ` : '';
 
   if (action === 'deploy') {
     const safeType = type === 'preview' ? 'preview' : 'production';
@@ -125,7 +137,7 @@ const buildCommand = ({ action, folder, type, domain, port, endTime, sha }) => {
     }
     const val = safeType === 'preview' ? resolvedPort : resolvedDomain;
     const extra = safeType === 'production' && resolvedPort ? ` ${resolvedPort}` : '';
-    return `cd ${BASE_PATH} && ./manager.sh deploy ${folderSafe} ${safeType} ${val}${extra}`;
+    return `cd ${BASE_PATH} && ${repoEnv}./manager.sh deploy ${folderSafe} ${safeType} ${val}${extra}`;
   }
 
   if (action === 'offair') {
@@ -412,7 +424,7 @@ const readDomainsFromTraefikDockerLabels = async () => {
             if (normalized) domains.push(normalized);
           });
         });
-      } catch (error) {
+      } catch {
         // Ignore malformed lines and continue parsing.
       }
     });
@@ -614,6 +626,10 @@ app.post('/api/execute', async (req, res) => {
     if (!available.some((commit) => commit.sha === sha)) {
       return res.status(400).json({ error: 'Selected SHA is not in rollback list. Refresh rollback list and try again.' });
     }
+  }
+
+  if (action === 'deploy' && payload.repo && !normalizeRepoRef(payload.repo)) {
+    return res.status(400).json({ error: 'Invalid GitHub repo. Use owner/repository or https://github.com/owner/repository.' });
   }
 
   const command = buildCommand(payload);

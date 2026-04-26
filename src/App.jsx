@@ -18,7 +18,7 @@ const DEFAULT_PROJECTS = [
 
 // --- Sub-components ---
 
-const Toast = ({ id, message, type, onClose }) => {
+const Toast = ({ message, type, onClose }) => {
   useEffect(() => {
     const timer = setTimeout(onClose, TOAST_TTL_MS);
     return () => clearTimeout(timer);
@@ -65,13 +65,12 @@ const Metric = ({ label, value, detail }) => (
   </div>
 );
 
-const ProjectCard = React.memo(({ project, onSync, onOpenBack, onOpenSettings, onOpenDelete, isBusy }) => {
+const ProjectCard = React.memo(({ project, nowTs, onSync, onOpenBack, onOpenSettings, onOpenDelete, isBusy }) => {
   const lifecycle = project.lifecycle || 'active';
   const badgeText = lifecycle === 'maintenance' ? 'Maintenance' : (project.status || 'Online');
   const badgeClass = lifecycle === 'maintenance' ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-600';
   const maintenanceEndTs = project.runtime?.maintenanceEndTime ? Date.parse(project.runtime.maintenanceEndTime) : NaN;
   const maintenanceStartTs = project.runtime?.maintenanceStartTime ? Date.parse(project.runtime.maintenanceStartTime) : NaN;
-  const nowTs = Date.now();
   const hasMaintenanceWindow = lifecycle === 'maintenance' && Number.isFinite(maintenanceEndTs) && maintenanceEndTs > nowTs;
   const totalWindow = Number.isFinite(maintenanceStartTs) && maintenanceEndTs > maintenanceStartTs ? maintenanceEndTs - maintenanceStartTs : 0;
   const elapsed = totalWindow > 0 ? Math.min(totalWindow, Math.max(0, nowTs - maintenanceStartTs)) : 0;
@@ -143,7 +142,7 @@ const ProjectCard = React.memo(({ project, onSync, onOpenBack, onOpenSettings, o
 function App() {
   const [isDark, setIsDark] = useState(() => localStorage.getItem('pdl_theme') === 'dark');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [, setClockTick] = useState(0);
+  const [nowTs, setNowTs] = useState(() => Date.now());
   const [projects, setProjects] = useState(() => {
     const saved = localStorage.getItem('pdl_projects');
     return saved ? JSON.parse(saved) : DEFAULT_PROJECTS;
@@ -189,7 +188,7 @@ function App() {
   }, [isDark]);
 
   useEffect(() => {
-    const timer = setInterval(() => setClockTick((prev) => prev + 1), 30000);
+    const timer = setInterval(() => setNowTs(Date.now()), 30000);
     return () => clearInterval(timer);
   }, []);
 
@@ -212,7 +211,7 @@ function App() {
       const res = await fetch(`${API_BASE}/api/projects`);
       const data = await res.json();
       if (data.projects) setServerMeta(data.projects);
-    } catch (error) {
+    } catch {
       // Silent background refresh for UI state.
     }
   }, []);
@@ -822,6 +821,10 @@ function App() {
       addToast('Folder invalid (min 2 chars, a-z0-9-)', 'error');
       return;
     }
+    if (!repo || !/^(https:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+(?:\.git)?|[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+)$/.test(repo)) {
+      addToast('GitHub repo must be owner/repository or https://github.com/owner/repository', 'error');
+      return;
+    }
     if (projects.some((project) => String(project.folder).toLowerCase() === folder.toLowerCase())) {
       addToast(`Folder ${folder} already exists`, 'error');
       return;
@@ -859,9 +862,9 @@ function App() {
     addToast(`Added project ${folder}`, 'success');
 
     if (mode === 'production') {
-      executeAction(folder, 'deploy', { type: 'production', domain });
+      executeAction(folder, 'deploy', { type: 'production', domain, repo });
     } else {
-      executeAction(folder, 'deploy', { type: 'preview', port });
+      executeAction(folder, 'deploy', { type: 'preview', port, repo });
     }
   };
 
@@ -990,6 +993,7 @@ function App() {
               <ProjectCard 
                 key={project.id} 
                 project={project}
+                nowTs={nowTs}
                 onSync={runUpdateQuickAction}
                 onOpenBack={openRollbackModal}
                 onOpenSettings={openSettingsModal}
