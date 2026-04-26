@@ -16,6 +16,38 @@ const DEFAULT_PROJECTS = [
   { id: 4, name: 'Portfolio V3', repo: 'Horaus/portfolio-v3', folder: 'portfolio-v3', type: 'Static Hosting', status: 'online', endpoint: 'cdn.px-v3.net' },
 ];
 
+const GITHUB_REPO_PATTERN = /^(?:https:\/\/github\.com\/)?([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+?)(?:\.git)?$/;
+
+const getRepoProjectSlug = (value) => {
+  const repo = String(value || '').trim();
+  const match = repo.match(GITHUB_REPO_PATTERN);
+  return match ? match[2].toLowerCase() : '';
+};
+
+const formatProjectNameFromSlug = (slug) =>
+  String(slug || '')
+    .replace(/[-_.]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+
+const slugifyProjectFolder = (value) =>
+  String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9-]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+
+const getProjectPreviewPort = (project) => {
+  const candidates = [
+    project?.runtime?.port,
+    project?.previewPort,
+    String(project?.endpoint || '').startsWith(':') ? String(project.endpoint).slice(1) : '',
+  ];
+  return candidates.map((value) => String(value || '').trim()).find((value) => /^\d{2,5}$/.test(value)) || '';
+};
+
 // --- Sub-components ---
 
 const Toast = ({ message, type, onClose }) => {
@@ -180,6 +212,7 @@ function App() {
     tag: '',
     tagColor: TAG_COLOR_OPTIONS[0],
   });
+  const [newProjectTouched, setNewProjectTouched] = useState({ name: false, folder: false });
   const toastDedupRef = useRef(new Map());
 
   useEffect(() => {
@@ -783,6 +816,11 @@ function App() {
   const guideTunnelId = dnsStatus?.tunnelId || DEFAULT_TUNNEL_ID;
   const guideTunnelTarget = `${guideTunnelId}.cfargotunnel.com`;
   const newProjectFqdn = buildFqdn(newProjectDraft.baseDomain, newProjectDraft.subdomain);
+  const newProjectPreviewPortConflict = useMemo(() => {
+    const port = String(newProjectDraft.previewPort || '').trim();
+    if (newProjectDraft.mode !== 'preview' || !/^\d{2,5}$/.test(port)) return null;
+    return projects.find((project) => getProjectPreviewPort({ ...project, ...(serverMeta[project.folder] || {}) }) === port) || null;
+  }, [newProjectDraft.mode, newProjectDraft.previewPort, projects, serverMeta]);
 
   const resetNewProjectDraft = () => {
     setNewProjectDraft({
@@ -797,6 +835,7 @@ function App() {
       tag: '',
       tagColor: TAG_COLOR_OPTIONS[0],
     });
+    setNewProjectTouched({ name: false, folder: false });
   };
 
   const openNewDeploymentModal = () => {
@@ -804,8 +843,36 @@ function App() {
     setShowNewModal(true);
   };
 
+  const updateNewProjectRepo = (value) => {
+    const repo = String(value || '').trim();
+    const repoSlug = getRepoProjectSlug(repo);
+    const inferredName = formatProjectNameFromSlug(repoSlug);
+    const inferredFolder = slugifyProjectFolder(repoSlug);
+
+    setNewProjectDraft((prev) => ({
+      ...prev,
+      repo: value,
+      name: !newProjectTouched.name && inferredName ? inferredName : prev.name,
+      folder: !newProjectTouched.folder && inferredFolder ? inferredFolder : prev.folder,
+    }));
+  };
+
+  const checkPreviewPortAvailability = async (port) => {
+    const localConflict = projects.find((project) => getProjectPreviewPort({ ...project, ...(serverMeta[project.folder] || {}) }) === port);
+    if (localConflict) {
+      return { available: false, owner: localConflict.name || localConflict.folder || `:${port}` };
+    }
+
+    const res = await fetch(`${API_BASE}/api/ports/check?port=${encodeURIComponent(port)}`);
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || 'Cannot check preview port');
+    }
+    return data;
+  };
+
   const createNewProject = async () => {
-    const folder = normalizeTagName(newProjectDraft.folder).replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+    const folder = slugifyProjectFolder(newProjectDraft.folder);
     const name = String(newProjectDraft.name || '').trim();
     const repo = String(newProjectDraft.repo || '').trim();
     const type = String(newProjectDraft.type || '').trim() || 'Production Environment';
@@ -821,7 +888,7 @@ function App() {
       addToast('Folder invalid (min 2 chars, a-z0-9-)', 'error');
       return;
     }
-    if (!repo || !/^(https:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+(?:\.git)?|[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+)$/.test(repo)) {
+    if (!repo || !GITHUB_REPO_PATTERN.test(repo)) {
       addToast('GitHub repo must be owner/repository or https://github.com/owner/repository', 'error');
       return;
     }
@@ -833,9 +900,22 @@ function App() {
       addToast('Production mode requires base domain/subdomain', 'error');
       return;
     }
-    if (mode === 'preview' && !/^\d{2,5}$/.test(port)) {
+    if (mode === 'preview' && (!/^\d{2,5}$/.test(port) || Number(port) < 1 || Number(port) > 65535)) {
       addToast('Preview port is invalid', 'error');
       return;
+    }
+    if (mode === 'preview') {
+      try {
+        const portCheck = await checkPreviewPortAvailability(port);
+        if (!portCheck.available) {
+          const owner = portCheck.owner ? ` (${portCheck.owner})` : '';
+          addToast(`Preview port ${port} is already in use${owner}`, 'error');
+          return;
+        }
+      } catch (error) {
+        addToast(`Port check failed: ${error.message}`, 'error');
+        return;
+      }
     }
 
     const nextId = projects.reduce((max, project) => Math.max(max, Number(project.id || 0)), 0) + 1;
@@ -1297,7 +1377,10 @@ function App() {
                  <label className="text-[10px] uppercase tracking-widest text-outline-variant font-bold">Project Name</label>
                  <input
                    value={newProjectDraft.name}
-                   onChange={(e) => setNewProjectDraft((prev) => ({ ...prev, name: e.target.value }))}
+                   onChange={(e) => {
+                     setNewProjectTouched((prev) => ({ ...prev, name: true }));
+                     setNewProjectDraft((prev) => ({ ...prev, name: e.target.value }));
+                   }}
                    placeholder="My Project"
                    className="w-full rounded-xl border border-surface-container bg-surface px-3 py-2 text-xs outline-none focus:ring-1 focus:ring-primary/30"
                  />
@@ -1306,12 +1389,13 @@ function App() {
                  <label className="text-[10px] uppercase tracking-widest text-outline-variant font-bold">Folder</label>
                  <input
                    value={newProjectDraft.folder}
-                   onChange={(e) =>
+                   onChange={(e) => {
+                     setNewProjectTouched((prev) => ({ ...prev, folder: true }));
                      setNewProjectDraft((prev) => ({
                        ...prev,
-                       folder: String(e.target.value || '').toLowerCase().replace(/[^a-z0-9-]/g, ''),
-                     }))
-                   }
+                       folder: slugifyProjectFolder(e.target.value),
+                     }));
+                   }}
                    placeholder="my-project"
                    className="w-full rounded-xl border border-surface-container bg-surface px-3 py-2 text-xs outline-none focus:ring-1 focus:ring-primary/30"
                  />
@@ -1320,7 +1404,7 @@ function App() {
                  <label className="text-[10px] uppercase tracking-widest text-outline-variant font-bold">GitHub Repo</label>
                  <input
                    value={newProjectDraft.repo}
-                   onChange={(e) => setNewProjectDraft((prev) => ({ ...prev, repo: e.target.value }))}
+                   onChange={(e) => updateNewProjectRepo(e.target.value)}
                    placeholder="owner/repository"
                    className="w-full rounded-xl border border-surface-container bg-surface px-3 py-2 text-xs outline-none focus:ring-1 focus:ring-primary/30"
                  />
@@ -1355,8 +1439,15 @@ function App() {
                      value={newProjectDraft.previewPort}
                      onChange={(e) => setNewProjectDraft((prev) => ({ ...prev, previewPort: String(e.target.value || '').replace(/[^0-9]/g, '') }))}
                      placeholder="8088"
-                     className="w-full rounded-xl border border-surface-container bg-surface px-3 py-2 text-xs outline-none focus:ring-1 focus:ring-primary/30"
+                     className={`w-full rounded-xl border bg-surface px-3 py-2 text-xs outline-none focus:ring-1 ${
+                       newProjectPreviewPortConflict ? 'border-red-500/50 focus:ring-red-500/30' : 'border-surface-container focus:ring-primary/30'
+                     }`}
                    />
+                   {newProjectPreviewPortConflict ? (
+                     <p className="text-[10px] font-bold text-red-600">
+                       Port {newProjectDraft.previewPort} is already used by {newProjectPreviewPortConflict.name || newProjectPreviewPortConflict.folder}.
+                     </p>
+                   ) : null}
                  </div>
                ) : (
                  <div className="space-y-2">

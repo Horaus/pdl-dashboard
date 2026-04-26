@@ -378,6 +378,14 @@ const normalizeDomainName = (value) => {
   return normalized;
 };
 
+const normalizePortNumber = (value) => {
+  const port = String(value || '').trim();
+  if (!/^\d{2,5}$/.test(port)) return '';
+  const numeric = Number(port);
+  if (!Number.isInteger(numeric) || numeric < 1 || numeric > 65535) return '';
+  return port;
+};
+
 const splitLabels = (host) => normalizeDomainName(host).split('.').filter(Boolean);
 
 const getBaseDomain = (host) => {
@@ -838,6 +846,52 @@ app.get('/api/domains/catalog', async (req, res) => {
   }
 });
 
+app.get('/api/ports/check', async (req, res) => {
+  const port = normalizePortNumber(req.query.port);
+  if (!port) {
+    return res.status(400).json({ error: 'Invalid port' });
+  }
+
+  const stateConflict = Object.entries(dashboardState.projects || {}).find(([, meta]) => {
+    const runtimePort = normalizePortNumber(meta?.runtime?.port);
+    return runtimePort === port && meta?.lifecycle !== 'deleted';
+  });
+  if (stateConflict) {
+    return res.json({
+      port,
+      available: false,
+      source: 'dashboard-state',
+      owner: stateConflict[0],
+    });
+  }
+
+  try {
+    const { stdout } = await execPromise(`docker ps --format '{{.Names}}\\t{{.Ports}}'`, { timeout: 8000 });
+    const match = String(stdout || '')
+      .split('\n')
+      .filter(Boolean)
+      .map((line) => {
+        const [name, ports = ''] = line.split('\t');
+        return { name, ports };
+      })
+      .find((entry) => new RegExp(`(?:0\\.0\\.0\\.0|::|127\\.0\\.0\\.1|\\[::\\]):${port}->|:${port}->`).test(entry.ports));
+
+    if (match) {
+      return res.json({
+        port,
+        available: false,
+        source: 'docker',
+        owner: match.name,
+        detail: match.ports,
+      });
+    }
+
+    return res.json({ port, available: true });
+  } catch (error) {
+    return res.status(500).json({ error: error.error?.message || error.message || 'Cannot inspect Docker ports' });
+  }
+});
+
 app.post('/api/domains/reload', async (req, res) => {
   try {
     const catalog = await getDomainCatalog(true);
@@ -871,7 +925,7 @@ app.post('/api/self/update', async (req, res) => {
 
   const command = `${detectPathsCommand(folderSafe)} \\
 ${ensureSafeGitDirectoryCommand} && cd $REPO_PATH && git pull && \\
-if [ -f manager.sh ]; then cp manager.sh ${shellQuote(path.join(BASE_PATH, 'manager.sh'))} && chmod +x ${shellQuote(path.join(BASE_PATH, 'manager.sh'))}; fi && \\
+if [ -f manager.sh ]; then cp manager.sh ${shellQuote(path.join(BASE_PATH, 'manager.sh'))} && chmod +x ${shellQuote(path.join(BASE_PATH, 'manager.sh'))} && chown "$(stat -c '%u:%g' ${shellQuote(BASE_PATH)})" ${shellQuote(path.join(BASE_PATH, 'manager.sh'))}; fi && \\
 cd $ROOT_PATH && docker compose up -d --build --remove-orphans`;
   const jobId = randomUUID();
   const runnerName = `pdl-dashboard-self-update-${jobId.slice(0, 8)}`;
