@@ -873,19 +873,20 @@ app.post('/api/self/update', async (req, res) => {
 ${ensureSafeGitDirectoryCommand} && cd $REPO_PATH && git pull && \\
 if [ -f manager.sh ]; then cp manager.sh ${shellQuote(path.join(BASE_PATH, 'manager.sh'))} && chmod +x ${shellQuote(path.join(BASE_PATH, 'manager.sh'))}; fi && \\
 cd $ROOT_PATH && docker compose up -d --build --remove-orphans`;
-  const logFile = `/tmp/pdl-dashboard-self-update-${Date.now()}.log`;
-  const launcher = `nohup sh -lc ${shellQuote(command)} > ${shellQuote(logFile)} 2>&1 &`;
   const jobId = randomUUID();
+  const runnerName = `pdl-dashboard-self-update-${jobId.slice(0, 8)}`;
+  const volumeArgs = [
+    `-v ${shellQuote('/var/run/docker.sock:/var/run/docker.sock')}`,
+    `-v ${shellQuote(`${BASE_PATH}:${BASE_PATH}`)}`,
+    SRV_WEBS_PATH === BASE_PATH ? '' : `-v ${shellQuote(`${SRV_WEBS_PATH}:${SRV_WEBS_PATH}`)}`,
+  ].filter(Boolean).join(' ');
+  const launcher = `docker run -d --rm --name ${runnerName} ${volumeArgs} -w ${shellQuote(BASE_PATH)} pdl-dashboard-backend:latest sh -lc ${shellQuote(command)}`;
 
   try {
-    const child = spawn('sh', ['-lc', launcher], {
-      detached: true,
-      stdio: 'ignore',
-    });
-    child.unref();
+    await execPromise(launcher, { timeout: 15000 });
     patchProjectMeta(folderSafe, { lifecycle: 'active' });
   } catch (error) {
-    return res.status(500).json({ error: error.message || 'Cannot start detached self-update' });
+    return res.status(500).json({ error: error.error?.message || error.message || 'Cannot start self-update runner' });
   }
 
   return res.json({
@@ -895,7 +896,7 @@ cd $ROOT_PATH && docker compose up -d --build --remove-orphans`;
     folder: folderSafe,
     self: true,
     detached: true,
-    logFile,
+    runner: runnerName,
   });
 });
 
