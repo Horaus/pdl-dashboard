@@ -777,7 +777,7 @@ app.get('/api/server/info', async (req, res) => {
   }
 
   return res.json({
-    tailscaleIp,
+    tailscaleIp: tailscaleIp || req.hostname || null,
     hostname: process.env.HOSTNAME || null,
   });
 });
