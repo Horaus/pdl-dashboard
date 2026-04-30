@@ -46,10 +46,13 @@ const loadState = () => {
       return { projects: {} };
     }
     const parsed = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'));
-    if (!parsed || typeof parsed !== 'object' || typeof parsed.projects !== 'object') {
-      return { projects: {} };
+    if (!parsed || typeof parsed !== 'object') {
+      return { projects: {}, projectsConfig: [] };
     }
-    return parsed;
+    return {
+      projects: parsed.projects || {},
+      projectsConfig: parsed.projectsConfig || [],
+    };
   } catch (error) {
     console.error('Cannot load dashboard state:', error.message);
     return { projects: {} };
@@ -807,6 +810,17 @@ app.get('/api/rollback/:folder/list', async (req, res) => {
   } catch (error) {
     return res.status(500).json({ error: error.error?.message || error.message || 'Cannot load rollback list' });
   }
+});
+
+app.get('/api/projects/config', (req, res) => {
+  return res.json({ projects: dashboardState.projectsConfig || [] });
+});
+
+app.post('/api/projects/config', (req, res) => {
+  const projects = Array.isArray(req.body?.projects) ? req.body.projects : [];
+  dashboardState.projectsConfig = projects;
+  saveState();
+  return res.json({ ok: true, count: projects.length });
 });
 
 app.get('/api/check-dns', async (req, res) => {

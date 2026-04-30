@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 
-const API_BASE = `http://${window.location.hostname}:3001`;
+const API_BASE = '';
 const SERVER_SYNC_INTERVAL_MS = 15000;
 const TOAST_TTL_MS = 4000;
 const MAX_ACTIVITY_ITEMS = 80;
@@ -53,6 +53,11 @@ const normalizeDisplayUrl = (value) => {
   if (!raw) return '';
   if (/^https?:\/\//i.test(raw)) return raw;
   if (raw.startsWith(':')) return '';
+
+  const host = raw.split(':')[0];
+  const isIP = /^(\d{1,3}\.){3}\d{1,3}$/.test(host);
+  if (isIP) return `http://${raw}`;
+
   if (/^[a-z0-9.-]+(?::\d+)?(?:\/.*)?$/i.test(raw)) return `https://${raw}`;
   return '';
 };
@@ -209,10 +214,8 @@ function App() {
   const [isDark, setIsDark] = useState(() => localStorage.getItem('pdl_theme') === 'dark');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [nowTs, setNowTs] = useState(() => Date.now());
-  const [projects, setProjects] = useState(() => {
-    const saved = localStorage.getItem('pdl_projects');
-    return saved ? JSON.parse(saved) : DEFAULT_PROJECTS;
-  });
+  const [projects, setProjects] = useState(DEFAULT_PROJECTS);
+  const [projectsLoaded, setProjectsLoaded] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [toasts, setToasts] = useState([]);
   const [serverMeta, setServerMeta] = useState({});
@@ -261,13 +264,57 @@ function App() {
   }, []);
 
   useEffect(() => {
+    const loadProjects = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/projects/config`);
+        const data = await res.json();
+        if (data.projects && Array.isArray(data.projects) && data.projects.length > 0) {
+          setProjects(data.projects);
+        } else {
+          // Fallback to localStorage if backend is empty
+          const saved = localStorage.getItem('pdl_projects');
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              setProjects(parsed);
+              // Auto-sync to backend if local has data but backend doesn't
+              fetch(`${API_BASE}/api/projects/config`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ projects: parsed }),
+              }).catch(() => {});
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load projects from backend:', error);
+        const saved = localStorage.getItem('pdl_projects');
+        if (saved) setProjects(JSON.parse(saved));
+      } finally {
+        setProjectsLoaded(true);
+      }
+    };
+    loadProjects();
+  }, []);
+
+  useEffect(() => {
+    if (!projectsLoaded) return;
     localStorage.setItem('pdl_projects', JSON.stringify(projects));
+    
+    // Sync to backend
+    fetch(`${API_BASE}/api/projects/config`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ projects }),
+    }).catch(() => {});
+
+    // Trigger backend folder scan
     fetch(`${API_BASE}/api/projects/sync`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ folders: projects.map((project) => project.folder) }),
     }).catch(() => {});
-  }, [projects]);
+  }, [projects, projectsLoaded]);
 
   const addToast = useCallback((msg, type = 'info') => {
     const id = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
