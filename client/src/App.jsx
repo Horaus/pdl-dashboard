@@ -270,21 +270,6 @@ function App() {
         const data = await res.json();
         if (data.projects && Array.isArray(data.projects)) {
           setProjects(data.projects);
-          
-          // If empty, try to auto-discover
-          if (data.projects.length === 0) {
-            const discRes = await fetch(`${API_BASE}/api/projects/discover`);
-            const discData = await discRes.json();
-            if (discData.discovered && discData.discovered.length > 0) {
-              setProjects(discData.discovered);
-              // Save the discovered projects back to server
-              fetch(`${API_BASE}/api/projects/config`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ projects: discData.discovered }),
-              }).catch(() => {});
-            }
-          }
         }
       } catch (error) {
         console.error('Failed to load projects from backend:', error);

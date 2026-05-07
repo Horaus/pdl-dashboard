@@ -580,16 +580,30 @@ const applyHardDeleteMeta = (folder) => {
 
 const discoverProjects = async () => {
   const discovered = [];
-  const searchPaths = [BASE_PATH, SRV_WEBS_PATH];
+  const startTime = Date.now();
+  
+  // Focus on standard Linux server paths
+  const searchPaths = [
+    BASE_PATH, 
+    SRV_WEBS_PATH,
+    '/var/www',
+    '/opt'
+  ].filter((p, i, arr) => p && arr.indexOf(p) === i);
+  
+  console.log(`[Discovery] Starting server-side scan. Paths: ${searchPaths.join(', ')}`);
   
   for (const searchPath of searchPaths) {
     try {
       if (!fs.existsSync(searchPath)) continue;
+      
       const files = fs.readdirSync(searchPath, { withFileTypes: true });
       for (const file of files) {
         if (file.isDirectory()) {
           const folderName = file.name;
-          if (folderName === 'pdl-dashboard' || folderName.startsWith('.') || folderName === 'lost+found') continue;
+          
+          if (folderName.startsWith('.') || 
+              folderName === 'lost+found' || 
+              folderName === 'node_modules') continue;
           
           // Check if already in config
           const exists = (dashboardState.projectsConfig || []).some(p => p.folder === folderName);
@@ -599,16 +613,18 @@ const discoverProjects = async () => {
               name: folderName.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
               folder: folderName,
               group: 'Discovered',
-              tags: [],
+              tags: [{ name: 'Auto', color: '#6366f1' }],
               isFavorite: false
             });
           }
         }
       }
     } catch (error) {
-      console.error(`Discovery failed for ${searchPath}:`, error.message);
+      console.error(`[Discovery] Failed for ${searchPath}:`, error.message);
     }
   }
+  
+  console.log(`[Discovery] Scan complete. Found ${discovered.length} new projects in ${Date.now() - startTime}ms`);
   return discovered;
 };
 
