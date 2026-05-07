@@ -27,5 +27,6 @@ services:
       - ${WEBS_HOME:-/home/pdl1host/webs}:${WEBS_HOME:-/home/pdl1host/webs}
       - ${SRV_WEBS_HOME:-/srv/webs}:${SRV_WEBS_HOME:-/srv/webs}
       - /var/run/docker.sock:/var/run/docker.sock
+      - ./server/dashboard-state.json:/app/dashboard-state.json
     ports:
       - "${BACKEND_PORT:-3001}:3001"

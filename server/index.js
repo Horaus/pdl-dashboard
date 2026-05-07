@@ -43,7 +43,7 @@ const normalizeRepoRef = (value) => {
 const loadState = () => {
   try {
     if (!fs.existsSync(STATE_FILE)) {
-      return { projects: {} };
+      return { projects: {}, projectsConfig: [] };
     }
     const parsed = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'));
     if (!parsed || typeof parsed !== 'object') {
@@ -55,7 +55,7 @@ const loadState = () => {
     };
   } catch (error) {
     console.error('Cannot load dashboard state:', error.message);
-    return { projects: {} };
+    return { projects: {}, projectsConfig: [] };
   }
 };
 
@@ -578,6 +578,40 @@ const applyHardDeleteMeta = (folder) => {
   });
 };
 
+const discoverProjects = async () => {
+  const discovered = [];
+  const searchPaths = [BASE_PATH, SRV_WEBS_PATH];
+  
+  for (const searchPath of searchPaths) {
+    try {
+      if (!fs.existsSync(searchPath)) continue;
+      const files = fs.readdirSync(searchPath, { withFileTypes: true });
+      for (const file of files) {
+        if (file.isDirectory()) {
+          const folderName = file.name;
+          if (folderName === 'pdl-dashboard' || folderName.startsWith('.') || folderName === 'lost+found') continue;
+          
+          // Check if already in config
+          const exists = (dashboardState.projectsConfig || []).some(p => p.folder === folderName);
+          if (!exists) {
+            discovered.push({
+              id: randomUUID(),
+              name: folderName.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+              folder: folderName,
+              group: 'Discovered',
+              tags: [],
+              isFavorite: false
+            });
+          }
+        }
+      }
+    } catch (error) {
+      console.error(`Discovery failed for ${searchPath}:`, error.message);
+    }
+  }
+  return discovered;
+};
+
 const runAutoHardDeleteSweep = async () => {
   const now = Date.now();
   const entries = Object.entries(dashboardState.projects || {});
@@ -821,6 +855,15 @@ app.post('/api/projects/config', (req, res) => {
   dashboardState.projectsConfig = projects;
   saveState();
   return res.json({ ok: true, count: projects.length });
+});
+
+app.get('/api/projects/discover', async (req, res) => {
+  try {
+    const discovered = await discoverProjects();
+    return res.json({ discovered });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
 });
 
 app.get('/api/check-dns', async (req, res) => {
