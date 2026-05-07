@@ -1,7 +1,7 @@
 # PDL Dashboard
 
 PDL Dashboard gồm:
-- Frontend: React + Vite (`/`)
+- Frontend: React + Vite (`/client`)
 - Backend API quản lý deploy: Express (`/server`)
 
 Mục tiêu repo: clone từ GitHub và chạy lại nhanh, không phụ thuộc file build tạm.
@@ -16,11 +16,10 @@ Mục tiêu repo: clone từ GitHub và chạy lại nhanh, không phụ thuộc
 
 ```text
 pdl-dashboard/
-├─ src/                  # frontend source
+├─ client/               # frontend source
 ├─ server/               # backend source
-├─ Dockerfile            # frontend image
 ├─ docker-compose.yml    # chạy cả frontend + backend
-├─ nginx.conf
+├─ manager.sh            # kịch bản quản lý vận hành
 ├─ .env.example
 └─ README.md
 ```
@@ -28,11 +27,8 @@ pdl-dashboard/
 ## 3) Chạy local (không Docker)
 
 ```bash
-# frontend deps
-npm install
-
-# backend deps
-npm --prefix server install
+# Cài đặt deps cho toàn bộ project
+npm run install:full
 
 # chạy đồng thời frontend + backend
 npm run dev:full

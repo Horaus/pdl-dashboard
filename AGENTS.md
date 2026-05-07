@@ -4,7 +4,7 @@
 
 PDL Dashboard is a full-stack deployment control panel for managing web projects hosted on a server.
 
-- Frontend: React 19 + Vite + Tailwind CSS v4 (`/src`)
+- Frontend: React 19 + Vite + Tailwind CSS v4 (`/client/src`)
 - Backend: Express 5 API (`/server/index.js`)
 - Runtime role: Trigger deploy/update/maintenance/delete/rollback flows by shelling out to `manager.sh` and Docker Compose
 - Primary deployment target paths:
@@ -143,11 +143,11 @@ Catalog is cached for 30s and served via `/api/domains/catalog`.
 - `.env.example`: compose/runtime env defaults
 - `eslint.config.js`: shared lint config for frontend and backend
 
-### Frontend (`src/`)
+### Frontend (`client/`)
 
-- `src/main.jsx`: React app bootstrap
-- `src/App.jsx`: main UI, API calls, modals, action handling
-- `src/index.css`: Tailwind import, theme tokens, utility/custom styles
+- `client/src/main.jsx`: React app bootstrap
+- `client/src/App.jsx`: main UI, API calls, modals, action handling
+- `client/src/index.css`: Tailwind import, theme tokens, utility/custom styles
 
 ### Backend (`server/`)
 

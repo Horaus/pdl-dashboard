@@ -1,7 +1,7 @@
 services:
   dashboard:
     build:
-      context: .
+      context: ./client
       dockerfile: Dockerfile
     image: ${PROJECT_NAME:-pdl-dashboard}-frontend:latest
     restart: always
