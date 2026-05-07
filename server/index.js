@@ -578,54 +578,13 @@ const applyHardDeleteMeta = (folder) => {
   });
 };
 
-const discoverProjects = async () => {
-  const discovered = [];
-  const startTime = Date.now();
-  
-  // Focus on standard Linux server paths
-  const searchPaths = [
-    BASE_PATH, 
-    SRV_WEBS_PATH,
-    '/var/www',
-    '/opt'
-  ].filter((p, i, arr) => p && arr.indexOf(p) === i);
-  
-  console.log(`[Discovery] Starting server-side scan. Paths: ${searchPaths.join(', ')}`);
-  
-  for (const searchPath of searchPaths) {
-    try {
-      if (!fs.existsSync(searchPath)) continue;
-      
-      const files = fs.readdirSync(searchPath, { withFileTypes: true });
-      for (const file of files) {
-        if (file.isDirectory()) {
-          const folderName = file.name;
-          
-          if (folderName.startsWith('.') || 
-              folderName === 'lost+found' || 
-              folderName === 'node_modules') continue;
-          
-          // Check if already in config
-          const exists = (dashboardState.projectsConfig || []).some(p => p.folder === folderName);
-          if (!exists) {
-            discovered.push({
-              id: randomUUID(),
-              name: folderName.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
-              folder: folderName,
-              group: 'Discovered',
-              tags: [{ name: 'Auto', color: '#6366f1' }],
-              isFavorite: false
-            });
-          }
-        }
-      }
-    } catch (error) {
-      console.error(`[Discovery] Failed for ${searchPath}:`, error.message);
-    }
-  }
-  
-  console.log(`[Discovery] Scan complete. Found ${discovered.length} new projects in ${Date.now() - startTime}ms`);
-  return discovered;
+const applyHardDeleteMeta = (folder) => {
+  return patchProjectMeta(folder, {
+    lifecycle: 'deleted',
+    deleteMeta: {
+      hardDeletedAt: Date.now(),
+    },
+  });
 };
 
 const runAutoHardDeleteSweep = async () => {
@@ -871,15 +830,6 @@ app.post('/api/projects/config', (req, res) => {
   dashboardState.projectsConfig = projects;
   saveState();
   return res.json({ ok: true, count: projects.length });
-});
-
-app.get('/api/projects/discover', async (req, res) => {
-  try {
-    const discovered = await discoverProjects();
-    return res.json({ discovered });
-  } catch (error) {
-    return res.status(500).json({ error: error.message });
-  }
 });
 
 app.get('/api/check-dns', async (req, res) => {

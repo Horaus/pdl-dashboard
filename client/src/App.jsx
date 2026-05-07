@@ -1020,33 +1020,6 @@ function App() {
     }
   };
 
-  const runDiscovery = async () => {
-    if (isBusy) return;
-    setIsBusy(true);
-    addToast('Scanning disk for new projects...', 'info');
-    try {
-      const res = await fetch(`${API_BASE}/api/projects/discover`);
-      const data = await res.json();
-      if (data.discovered && data.discovered.length > 0) {
-        const newProjects = [...projects, ...data.discovered];
-        setProjects(newProjects);
-        // Save to backend
-        await fetch(`${API_BASE}/api/projects/config`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ projects: newProjects }),
-        });
-        addToast(`Found and added ${data.discovered.length} new projects`, 'success');
-      } else {
-        addToast('No new projects found on disk', 'info');
-      }
-    } catch (error) {
-      addToast(`Discovery failed: ${error.message}`, 'error');
-    } finally {
-      setIsBusy(false);
-    }
-  };
-
   return (
     <div className="min-h-screen bg-surface">
       {/* SideNavBar */}
@@ -1165,14 +1138,6 @@ function App() {
           <div className="flex items-center justify-between mb-6 sm:mb-8 gap-3">
             <h2 className="text-lg sm:text-2xl font-black tracking-tighter uppercase">Infrastructure Node Grid</h2>
             <div className="h-px flex-1 bg-surface-container mx-2 sm:mx-6"></div>
-            <button 
-              onClick={runDiscovery}
-              disabled={isBusy}
-              className="flex items-center gap-2 px-4 py-2 bg-surface-container-high hover:bg-surface-variant text-[10px] font-black uppercase tracking-widest rounded-xl transition-all disabled:opacity-50"
-            >
-              <span className="material-symbols-outlined text-[16px]">travel_explore</span>
-              Scan Disk
-            </button>
             <span className="hidden sm:inline text-[10px] font-black text-outline uppercase tracking-widest">Real-time Telemetry</span>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-4 gap-4 sm:gap-5">
