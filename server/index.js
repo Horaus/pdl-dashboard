@@ -578,15 +578,6 @@ const applyHardDeleteMeta = (folder) => {
   });
 };
 
-const applyHardDeleteMeta = (folder) => {
-  return patchProjectMeta(folder, {
-    lifecycle: 'deleted',
-    deleteMeta: {
-      hardDeletedAt: Date.now(),
-    },
-  });
-};
-
 const runAutoHardDeleteSweep = async () => {
   const now = Date.now();
   const entries = Object.entries(dashboardState.projects || {});
